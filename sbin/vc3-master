@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# Thin python library executable
+#
+EXEPKG=vc3master/bin
+EXEBIN=vc3-master.py
+
+########## Do not edit below this line #############
+PYVER=`python -V 2>&1 | awk '{ print $2}' | awk -F '.' '{ print $1"."$2 }' `
+RPMEXE=/usr/lib/python$PYVER/site-packages/$EXEPKG/$EXEBIN
+HOMEEXE=~/lib/python/$EXEPKG/$EXEBIN
+
+if [ -f $RPMEXE ]; then
+    python $RPMEXE $*
+elif [ -f $HOMEEXE ]; then
+   export PYTHONPATH=~/lib/python
+   python $HOMEEXE $*
+else
+    echo "No suitable $EXEBIN executable found."
+fi
