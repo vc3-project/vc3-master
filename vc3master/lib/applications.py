@@ -1,6 +1,6 @@
 #!/usr/bin/env python   
 
-class Applications(object):
+class ApplicationsMgr(object):
 
     def __init__(self):
         pass
@@ -22,3 +22,8 @@ class Applications(object):
 
     def stop(self):
         pass
+
+
+class Application(object):
+
+    def __init__(self):

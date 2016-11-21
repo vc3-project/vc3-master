@@ -1,8 +1,8 @@
 #!/usr/bin/env python 
 
-from vc3master.lib.clusters import Clusters
-from vc3master.lib.sites import Sites 
-from vc3master.lib.applications import Applications
+from vc3master.lib.clusters import ClustersMgr, Cluster
+from vc3master.lib.sites import SitesMgr, Site
+from vc3master.lib.applications import ApplicationsMgr, Application
 
 import argparse
 

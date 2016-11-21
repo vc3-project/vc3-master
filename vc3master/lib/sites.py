@@ -1,6 +1,6 @@
 #!/usr/bin/env python   
 
-class Sites(object):
+class SitesMgr(object):
 
     def __init__(self):
         pass
@@ -16,3 +16,8 @@ class Sites(object):
 
     def get(self):
         pass
+
+
+class Site(object):
+
+    def __init__(self):
