@@ -1,2 +1,3 @@
 include CHANGELOG LICENSE README
 include sbin/*
+include etc/*

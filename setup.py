@@ -74,6 +74,7 @@ setup(
     packages=['vc3master',
               'vc3master.bin',
               'vc3master.lib',
+              'vc3master.plugins',
              ],
 
     
