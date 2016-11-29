@@ -22,7 +22,10 @@ from distutils.command.install_data import install_data as install_data_org
 
 
 # etc files are handled by setup.cfg
-etc_files = [ ]
+etc_files = ['etc/applications.conf',
+             'etc/clusters.conf',
+             'etc/sites.conf',
+            ]
 
 
 sbin_scripts = ['sbin/vc3-master',
@@ -30,7 +33,9 @@ sbin_scripts = ['sbin/vc3-master',
 
 # -----------------------------------------------------------
 
-rpm_data_files=[('/usr/sbin', sbin_scripts),]
+rpm_data_files=[('/usr/sbin', sbin_scripts),
+                ('/etc/vc3master', etc_files),
+               ]
 
 
 
