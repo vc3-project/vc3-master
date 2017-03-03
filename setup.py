@@ -75,10 +75,8 @@ setup(
     maintainer='VC3 team',
     maintainer_email='vc3-project@googlegroups.com',
     url='http://virtualclusters.org/',
-    packages=['vc3master',
-              'vc3master.bin',
-              'vc3master.lib',
-              'vc3master.plugins',
+    packages=['vc3',
+              'vc3.plugins',
              ],
 
     
