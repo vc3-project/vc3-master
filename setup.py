@@ -4,7 +4,8 @@
 #
 #
 
-release_version='0.9.1'
+from vc3 import master
+release_version=master.__version__
 
 import commands
 import os
@@ -22,9 +23,7 @@ from distutils.command.install_data import install_data as install_data_org
 
 
 # etc files are handled by setup.cfg
-etc_files = ['etc/applications.conf',
-             'etc/clusters.conf',
-             'etc/sites.conf',
+etc_files = ['etc/vc3-master.conf'
             ]
 
 
