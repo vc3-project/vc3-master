@@ -16,29 +16,35 @@ from distutils.core import setup
 from distutils.command.install import install as install_org
 from distutils.command.install_data import install_data as install_data_org
 
+systemd_files = [ 'etc/vc3-service-info.service' ]
 
-# ===========================================================
-#                D A T A     F I L E S 
-# ===========================================================
-
-
-# etc files are handled by setup.cfg
-etc_files = ['etc/vc3-master.conf'
+etc_files = ['etc/vc3-master.conf',
+             'etc/vc3-master.service',
             ]
 
+sysconfig_files = [
+             'etc/sysconfig/vc3-master',
+             ]
 
-sbin_scripts = ['sbin/vc3-master',
+logrotate_files = [
+             'etc/logrotate/vc3-master',
+                  ]
+
+initd_files = ['etc/vc3-master.init', ]
+
+rpm_data_files=[
+                ('/etc/vc3', etc_files),
+                ('/etc/sysconfig', sysconfig_files),
+                ('/etc/logrotate.d', logrotate_files),                                        
+                ('/etc/init.d', initd_files),
+                ('/usr/lib/systemd/system', systemd_files),                                     
                ]
 
-# -----------------------------------------------------------
-
-rpm_data_files=[('/usr/sbin', sbin_scripts),
-                ('/etc/vc3master', etc_files),
-               ]
-
-
-
-# -----------------------------------------------------------
+home_data_files=[#('etc', libexec_files),
+                 ('etc', etc_files),
+                 ('etc', initd_files),
+                 ('etc', sysconfig_files),
+                ]
 
 def choose_data_files():
     rpminstall = True
@@ -78,7 +84,7 @@ setup(
     packages=['vc3',
               'vc3.plugins',
              ],
-
+    scripts=['scripts/vc3-master'],
     
     data_files = choose_data_files()
 )
