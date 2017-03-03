@@ -1,0 +1,25 @@
+# Sysconfig file for vc3-info-service
+#
+# place this file under /etc/sysconfig/vc3-master
+#  DAEMON OPTIONS:
+#  --trace              Set logging level to TRACE [default WARNING], super verbose level
+#  --debug              Set logging level to DEBUG [default WARNING]
+#  --info               Set logging level to INFO [default WARNING]
+#  --quiet              Set logging level to WARNING [default WARNING]
+#  --conf=FILE1[,FILE2,FILE3]
+#                        Load configuration from FILEs (comma separated list)
+#  --runas=ACCOUNT       User account to run as. [autopyfactory]
+#  --log=LOGFILE         Send logging output to LOGFILE or stdout
+# Override default conffile path if desired. 
+#
+# CONFFILE=/etc/vc3/vc3-master.conf
+
+# Options for RPM
+LOGFILE=/var/log/vc3/master.log
+OPTIONS="--trace --runas=vc3 --log=/var/log/vc3/master.log"
+CONSOLE_LOG=/var/log/vc3/master-console.log
+
+# Options for HOME
+#LOGFILE=$HOME/var/log/vc3/vc3-master.log
+#OPTIONS="--trace  --runas=vc3 --log=$HOME/var/log/vc3/master.log"
+#CONSOLE_LOG=$HOME/var/log/vc3/master-console.log

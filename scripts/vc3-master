@@ -2,7 +2,7 @@
 #
 # Thin python library executable
 #
-EXEPKG=vc3master/bin
+EXEPKG=vc3
 EXEBIN=vc3-master.py
 
 ########## Do not edit below this line #############
