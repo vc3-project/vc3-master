@@ -32,6 +32,7 @@ from ConfigParser import ConfigParser
 sys.path.append(libpath)
 
 from vc3.plugin import PluginManager
+from vc3.infoclient import InfoClient 
 
 class VC3Master(object):
     
@@ -47,12 +48,14 @@ class VC3Master(object):
         self.log.debug("keyfile=%s" % self.keyfile)
         self.log.debug("chainfile=%s" % self.chainfile)
         
+        self.infoclient = InfoClient(config)    
         self.log.debug('VC3Master class done.')
         
     def run(self):
         self.log.debug('Master running...')
         while True:
             self.log.debug("Master polling....")
+            d = self.infoclient.getdocument('request')
             time.sleep(5)
        
     
@@ -145,7 +148,7 @@ John Hover <jhover@bnl.gov>
         if self.options.logfile == "stdout":
             logStream = logging.StreamHandler()
         else:
-            lf = self.options.logfile
+            lf = os.path.expanduser(self.options.logfile)
             logdir = os.path.dirname(lf)
             if not os.path.exists(logdir):
                 os.makedirs(logdir)
