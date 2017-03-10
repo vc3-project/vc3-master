@@ -1,4 +1,5 @@
 #!/usr/bin/env python 
+
 __author__ = "John Hover, Jose Caballero"
 __copyright__ = "2017 John Hover"
 __credits__ = []
@@ -23,6 +24,8 @@ import threading
 import time
 import traceback
 
+from multiprocessing import Process
+
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
@@ -39,10 +42,13 @@ class VC3Master(object):
     def __init__(self, config):
         self.log = logging.getLogger()
         self.log.debug('VC3Master class init...')
+
         self.config = config
         self.certfile = os.path.expanduser(config.get('netcomm','certfile'))
         self.keyfile = os.path.expanduser(config.get('netcomm', 'keyfile'))
         self.chainfile = os.path.expanduser(config.get('netcomm','chainfile'))
+
+        self.builder_path = config.get('dynamic','builder_path')
         
         self.log.debug("certfile=%s" % self.certfile)
         self.log.debug("keyfile=%s" % self.keyfile)
@@ -50,15 +56,126 @@ class VC3Master(object):
         
         self.infoclient = InfoClient(config)    
         self.log.debug('VC3Master class done.')
+
+        self.whitelist = ['work-queue-catalog', 'some-other-service']
+        self.current_sites = {}
         
     def run(self):
         self.log.debug('Master running...')
         while True:
             self.log.debug("Master polling....")
-            d = self.infoclient.getdocument('request')
+            doc = self.infoclient.getdocument('request')
+            self.process_requests(doc)
             time.sleep(5)
        
-    
+    def process_requests(self, doc):
+        try:
+            ds = json.loads(doc)
+        except Exception as e:
+            raise e
+
+        try:
+            requests = ds['request']
+        except KeyError:
+            # no requests available
+            return
+
+        for site_name in requests:
+            self.process_request(site_name, requests[site_name])
+
+        # terminate site requests that are no longer present
+        sites_to_delete = []
+        for site_name in self.current_sites:
+            if not site_name in requests:
+                self.current_sites[site_name].terminate()
+                sites_to_delete.append(site_name)
+
+        # because deleting from current iterator is bad juju
+        for site_name in sites_to_delete:
+            del self.current_sites[site_name]
+
+    def process_request(self, site_name, request):
+        if not site_name in self.current_sites:
+            self.current_sites[site_name] = VC3SiteRequest(self.log, self.builder_factory())
+        self.current_sites[site_name].perform(request, self.whitelist)
+
+    def builder_factory(self):
+        def builder(service):
+            cmd  = self.builder_path + '/vc3-builder'
+            cmd += ' --install   ' + self.builder_path + 'vc3-dev'
+            cmd += ' --home      ' + self.builder_path + 'vc3-dev-home'
+            cmd += ' --make-jobs 4'
+            cmd += ' --require   vc3-dev'
+            cmd += ' --require '
+            cmd += service
+            os.system(cmd)
+        return builder
+            
+
+class VC3SiteRequest(object):
+    def __init__(self, log, builder_factory):
+        self.builder_factory = builder_factory
+        self.log             = log
+        self.processes       = {}
+
+    def perform(self, request, whitelist):
+        for service_name in request:
+            if not service_name in whitelist:
+                continue
+
+            action = None
+            try:
+                action = request[service_name]['action']
+            except KeyError:
+                action = "not-specified"
+
+            self.log.info(action)
+            self.log.info(request)
+
+            if not action == 'spawn':
+                continue
+
+            if not service_name in self.processes or not self.processes[service_name].is_alive():
+                self.processes[service_name] = self.execute(service_name)
+
+        # terminate site requests that are no longer present
+        self.terminate_old_services(request)
+
+    # probably this goes into the Execute plugin.
+    def execute(self, service_name):
+        p = Process(target = self.builder_factory, args = (service_name,))
+        self.log.info('Starting service ' + service_name)
+        p.start()
+        return p
+
+    def terminate_old_services(self,request):
+        '''
+        Terminate those services that no longer appear on the request.
+        '''
+        services_to_delete = []
+        for service_name in self.processes:
+
+            action = None
+            try:
+                action = request[service_name]['action']
+            except KeyError:
+                action = "not-specified"
+
+            if (not service_name in request) or (action == 'off'):
+                self.log.info('Terminating service ' + service_name)
+
+                self.processes[service_name].terminate()
+                self.processes[service_name].join(60)
+
+                services_to_delete.append(service_name)
+        for service_name in services_to_delete:
+            del self.processes[service_name]
+
+    def terminate(self):
+        '''
+        Like an 'empty' request, to vacate all running services.
+        '''
+        return self.terminate_old_services({})
 
 class VC3MasterCLI(object):
     """class to handle the command line invocation of service. 
@@ -136,6 +253,13 @@ John Hover <jhover@bnl.gov>
                           action="store", 
                           metavar="USERNAME", 
                           help="If run as root, drop privileges to USER")
+        parser.add_option("--builder", dest="builder_path", 
+                          #
+                          # By default
+                          #
+                          default='vc3-builder',  # by default, hope the builder is in the PATH
+                          action="store", 
+                          help="service bootstrapper")
         (self.options, self.args) = parser.parse_args()
 
         self.options.confFiles = self.options.confFiles.split(',')
@@ -186,7 +310,6 @@ John Hover <jhover@bnl.gov>
         for k in sorted(os.environ.keys()):
             envmsg += '\n%s=%s' %(k, os.environ[k])
         self.log.debug('Environment : %s' %envmsg)
-
 
     def __platforminfo(self):
         '''
@@ -293,3 +416,4 @@ John Hover <jhover@bnl.gov>
 if __name__ == '__main__':
     mcli = VC3MasterCLI()
     mcli.run()
+
