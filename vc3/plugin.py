@@ -116,3 +116,30 @@ class PluginManager(object):
         self.log.debug("Retrieved plugin with class name %s" % name)
         return plugin_class
 
+
+def PluginInterface(object):
+    def __init__(self, factory, log, **args):
+        """
+        factory: a function that takes as arguments how to launch a service using the vc3_builder.
+        log:     logging facility from the master.
+        """
+
+        self.builder_factory = factory
+        self.log             = log
+
+    def start(self):
+        raise NotImplementedError( "Method not implement for this plugin!" )
+
+    def terminate(self):
+        raise NotImplementedError( "Method not implement for this plugin!" )
+
+    def wait(self):
+        raise NotImplementedError( "Method not implement for this plugin!" )
+
+    def is_alive(self):
+        raise NotImplementedError( "Method not implement for this plugin!" )
+
+    def died_with_error(self):
+        raise NotImplementedError( "Method not implement for this plugin!" )
+
+

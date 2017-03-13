@@ -57,9 +57,23 @@ class VC3Master(object):
             self.log.debug("Master polling....")
             d = self.infoclient.getdocument('request')
             time.sleep(5)
-       
-    
 
+
+     def builder_factory(self):
+         """
+         Function to pass to plugins to launch themselves.
+        """
+         def builder(service):
+             cmd  = self.builder_path + '/vc3-builder'
+                     cmd += ' --install   ' + self.builder_path + 'vc3-dev'
+                     cmd += ' --home      ' + self.builder_path + 'vc3-dev-home'
+                     cmd += ' --make-jobs 4'
+                     cmd += ' --require   vc3-dev'
+                     cmd += ' --require '
+                     cmd += service
+                     os.system(cmd)
+                 return builder
+       
 class VC3MasterCLI(object):
     """class to handle the command line invocation of service. 
        parse the input options,
