@@ -4,8 +4,8 @@
 #
 #
 
-from vc3 import master
-release_version=master.__version__
+import vc3.master
+release_version=vc3.master.__version__
 
 import commands
 import os
