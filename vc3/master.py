@@ -104,6 +104,7 @@ class VC3Master(object):
                 core = VC3Core(site_name, self.config)
                 core.run()
             self.current_sites[site_name] = Process(target = launch_core)
+            self.current_sites[site_name].start()
 
 class VC3MasterCLI(object):
     """class to handle the command line invocation of service. 
