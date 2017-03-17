@@ -36,7 +36,7 @@ from multiprocessing import Process
 sys.path.append(libpath)
 
 from infoclient import InfoClient 
-from vc3.core import VC3Core
+from core import VC3Core
 #from vc3.plugin import PluginManager
 
 class VC3Master(object):
@@ -99,12 +99,17 @@ class VC3Master(object):
 
     def process_request(self, site_name, request):
         if not site_name in self.current_sites:
-            def launch_core():
-                # probably this should we handle by the execute plugin
-                core = VC3Core(site_name, self.config)
-                core.run()
-            self.current_sites[site_name] = Process(target = launch_core)
-            self.current_sites[site_name].start()
+            if 'action' in request:
+                action = request['action']
+                if action == 'spawn':
+                    def launch_core():
+                        # probably this should we handle by the execute plugin
+                        core = VC3Core(site_name, self.config)
+                        core.run()
+                    self.current_sites[site_name] = Process(target = launch_core)
+                    self.current_sites[site_name].start()
+            else:
+                self.log.info("Malformed request for '%s' : no action specified." % (site_name,))
 
 class VC3MasterCLI(object):
     """class to handle the command line invocation of service. 
