@@ -1,4 +1,5 @@
 #!/usr/bin/env python 
+
 __author__ = "John Hover, Jose Caballero"
 __copyright__ = "2017 John Hover"
 __credits__ = []
@@ -26,39 +27,94 @@ import traceback
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
+from multiprocessing import Process
+
+
 # Since script is in package "vc3" we can know what to add to path for 
 # running directly during development
 (libpath,tail) = os.path.split(sys.path[0])
 sys.path.append(libpath)
 
+<<<<<<< HEAD
 from pluginmanager.plugin import PluginManager
 from vc3.infoclient import InfoClient 
+=======
+from infoclient import InfoClient 
+from core import VC3Core
+#from vc3.plugin import PluginManager
+>>>>>>> branch 'master' of https://github.com/vc3-project/vc3-master.git
 
 class VC3Master(object):
     
     def __init__(self, config):
         self.log = logging.getLogger()
         self.log.debug('VC3Master class init...')
+
         self.config = config
-        self.certfile = os.path.expanduser(config.get('netcomm','certfile'))
-        self.keyfile = os.path.expanduser(config.get('netcomm', 'keyfile'))
+
+        self.certfile  = os.path.expanduser(config.get('netcomm','certfile'))
+        self.keyfile   = os.path.expanduser(config.get('netcomm', 'keyfile'))
         self.chainfile = os.path.expanduser(config.get('netcomm','chainfile'))
-        
+
         self.log.debug("certfile=%s" % self.certfile)
         self.log.debug("keyfile=%s" % self.keyfile)
         self.log.debug("chainfile=%s" % self.chainfile)
         
         self.infoclient = InfoClient(config)    
         self.log.debug('VC3Master class done.')
+
+        self.current_sites = {}
         
     def run(self):
         self.log.debug('Master running...')
         while True:
+
             self.log.debug("Master polling....")
-            d = self.infoclient.getdocument('request')
+            doc = self.infoclient.getdocument('request')
+
+            if doc:
+                self.process_requests(doc)
             time.sleep(5)
        
-    
+    def process_requests(self, doc):
+        try:
+            ds = json.loads(doc)
+        except Exception as e:
+            raise e
+
+        try:
+            requests = ds['request']
+        except KeyError:
+            # no requests available
+            return
+
+        for site_name in requests:
+            self.process_request(site_name, requests[site_name])
+
+        # terminate site requests that are no longer present
+        sites_to_delete = []
+        for site_name in self.current_sites:
+            if not site_name in requests:
+                self.current_sites[site_name].terminate()
+                sites_to_delete.append(site_name)
+
+        # because deleting from current iterator is bad juju
+        for site_name in sites_to_delete:
+            del self.current_sites[site_name]
+
+    def process_request(self, site_name, request):
+        if not site_name in self.current_sites:
+            if 'action' in request:
+                action = request['action']
+                if action == 'spawn':
+                    def launch_core():
+                        # probably this should we handle by the execute plugin
+                        core = VC3Core(site_name, self.config)
+                        core.run()
+                    self.current_sites[site_name] = Process(target = launch_core)
+                    self.current_sites[site_name].start()
+            else:
+                self.log.info("Malformed request for '%s' : no action specified." % (site_name,))
 
 class VC3MasterCLI(object):
     """class to handle the command line invocation of service. 
@@ -136,6 +192,13 @@ John Hover <jhover@bnl.gov>
                           action="store", 
                           metavar="USERNAME", 
                           help="If run as root, drop privileges to USER")
+        parser.add_option("--builder", dest="builder_path", 
+                          #
+                          # By default
+                          #
+                          default='vc3-builder',  # by default, hope the builder is in the PATH
+                          action="store", 
+                          help="service bootstrapper")
         (self.options, self.args) = parser.parse_args()
 
         self.options.confFiles = self.options.confFiles.split(',')
@@ -186,7 +249,6 @@ John Hover <jhover@bnl.gov>
         for k in sorted(os.environ.keys()):
             envmsg += '\n%s=%s' %(k, os.environ[k])
         self.log.debug('Environment : %s' %envmsg)
-
 
     def __platforminfo(self):
         '''
@@ -293,3 +355,4 @@ John Hover <jhover@bnl.gov>
 if __name__ == '__main__':
     mcli = VC3MasterCLI()
     mcli.run()
+
