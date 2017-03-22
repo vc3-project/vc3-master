@@ -35,9 +35,9 @@ from multiprocessing import Process
 (libpath,tail) = os.path.split(sys.path[0])
 sys.path.append(libpath)
 
-from infoclient import InfoClient 
-from vc3.core import VC3Core
 from pluginmanager.plugin import PluginManager
+from vc3.infoclient import InfoClient 
+from vc3.core import VC3Core
 
 class VC3Master(object):
     
