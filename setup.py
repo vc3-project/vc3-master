@@ -4,8 +4,10 @@
 #
 #
 
-import vc3.master
-release_version=vc3.master.__version__
+# commenting, as it creates dependency on vc3 prefix:
+#import vc3.master
+#release_version=vc3.master.__version__
+release_version='0.0.1'
 
 import commands
 import os

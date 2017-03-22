@@ -36,8 +36,8 @@ from multiprocessing import Process
 sys.path.append(libpath)
 
 from infoclient import InfoClient 
-from core import VC3Core
-#from vc3.plugin import PluginManager
+from vc3.core import VC3Core
+from pluginmanager.plugin import PluginManager
 
 class VC3Master(object):
     
@@ -106,6 +106,7 @@ class VC3Master(object):
                         # probably this should we handle by the execute plugin
                         core = VC3Core(site_name, self.config)
                         core.run()
+                    #launch_core()
                     self.current_sites[site_name] = Process(target = launch_core)
                     self.current_sites[site_name].start()
             else:
