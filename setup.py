@@ -32,7 +32,7 @@ logrotate_files = [
              'etc/logrotate/vc3-master',
                   ]
 
-initd_files = ['etc/vc3-master.init', ]
+initd_files = [ ]
 
 rpm_data_files=[
                 ('/etc/vc3', etc_files),
