@@ -27,6 +27,7 @@ import traceback
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
+import subprocess
 from multiprocessing import Process
 
 
@@ -104,9 +105,10 @@ class VC3Master(object):
                 if action == 'spawn':
                     def launch_core():
                         # probably this should we handle by the execute plugin
-                        core = VC3Core(site_name, self.config)
-                        core.run()
-                    #launch_core()
+                        cmd = ['vc3-core', '--requestid', site_name]
+                        subprocess.check_call(cmd)
+                    #launch_core() # for testing
+                    #sys.exit(1)
                     self.current_sites[site_name] = Process(target = launch_core)
                     self.current_sites[site_name].start()
             else:
