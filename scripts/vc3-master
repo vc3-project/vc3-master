@@ -1,20 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env python
 #
-# Thin python library executable
+# Very simple wrapper to go in /usr/bin to be executed by init script. 
 #
-EXEPKG=vc3
-EXEBIN=vc3-master.py
+from vc3.master import VC3MasterCLI
 
-########## Do not edit below this line #############
-PYVER=`python -V 2>&1 | awk '{ print $2}' | awk -F '.' '{ print $1"."$2 }' `
-RPMEXE=/usr/lib/python$PYVER/site-packages/$EXEPKG/$EXEBIN
-HOMEEXE=~/lib/python/$EXEPKG/$EXEBIN
-
-if [ -f $RPMEXE ]; then
-    python $RPMEXE $*
-elif [ -f $HOMEEXE ]; then
-   export PYTHONPATH=~/lib/python
-   python $HOMEEXE $*
-else
-    echo "No suitable $EXEBIN executable found."
-fi
+def main():
+    '''
+    Simplest possible invocation of Infoservice program. Does not have the .py extension
+    to keep the RPM building system happy. 
+    '''
+    srv = VC3MasterCLI()
+    srv.run()
+        
+if __name__ == "__main__":
+    main()
