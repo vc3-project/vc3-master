@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/usr/bin/env python
 # 
 #  This Task plugin searches for new user vcluster Requests
 #
@@ -10,4 +10,15 @@
 #     -- confirm core launched 
 #     -- store request in state 'initialized'
 #
-#
+from vc3.task import VC3Task
+
+class InitRequests(VC3Task):
+    '''
+    Plugin to transition Requests from 'new' to 'initialized' state.
+     
+    '''
+    
+    
+    def runtask(self):
+        '''
+        '''

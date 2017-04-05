@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/usr/bin/env python
 #
 #  Poll for resources in state 'new'
 #  IF SSH or MFA:
@@ -8,3 +8,15 @@
 #      -- Store Resrouce in state 'ready-for-init'
 #
 #
+
+from vc3.task import VC3Task
+
+class InitResources(VC3Task):
+    '''
+    Plugin to transition Resources from 'new' to 'read-to-init' state.
+     
+    '''
+    
+    def runtask(self):
+        '''
+        '''
