@@ -85,6 +85,8 @@ setup(
     url='http://virtualclusters.org/',
     packages=['vc3',
               'vc3.plugins',
+              'vc3.plugins.dynamic',
+              'vc3.plugins.task'
              ],
     scripts=['scripts/vc3-master'],
     
