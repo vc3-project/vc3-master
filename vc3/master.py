@@ -130,6 +130,13 @@ class VC3Master(object):
                     self.current_sites[site_name].start()
             else:
                 self.log.info("Malformed request for '%s' : no action specified." % (site_name,))
+    def shutdown(self):
+        self.log.debug("Got shutdown command...")
+        for ts in self.tasksets:
+            ts.join()
+        self.log.debug("Done.")
+
+
 
 class VC3MasterCLI(object):
     """class to handle the command line invocation of service. 
@@ -361,7 +368,7 @@ John Hover <jhover@bnl.gov>
             
         except KeyboardInterrupt:
             self.log.info('Caught keyboard interrupt - exitting')
-            vc3m.join()
+            vc3m.shutdown()
             sys.exit(0)
         except ImportError, errorMsg:
             self.log.error('Failed to import necessary python module: %s' % errorMsg)

@@ -4,6 +4,7 @@
 
 import logging
 import threading
+import datetime
 import time
 from pluginmanager import PluginManager
 
@@ -14,10 +15,12 @@ class VC3TaskSet(threading.Thread):
     '''
     def __init__(self, config, section):
         '''
-        
+        Contains one or more task plugins, which are run sequentially every <polling_interval> seconds. 
         '''
         self.log = logging.getLogger()
         threading.Thread.__init__(self) # init the thread
+        self.stopevent = threading.Event()
+        self.thread_loop_interval = 1
         self.config = config
         self.section = section
         self.polling_interval = int(self.config.get(self.section, 'polling_interval')) 
@@ -42,10 +45,24 @@ class VC3TaskSet(threading.Thread):
         '''
         '''
         self.log.debug("Running Taskset %s" % self.section)
-        for p in self.tasks:            
-            p.runtask()
-        self.log.debug("Sleeping for %s seconds..." % self.polling_interval)    
-        time.sleep(self.polling_interval)
+        tdinterval = datetime.timedelta(seconds = self.polling_interval)
+        lastrun = datetime.datetime(2000, 12, 1)
+        while not self.stopevent.isSet():
+            if datetime.datetime.now() - lastrun > tdinterval:
+                for p in self.tasks:            
+                    p.runtask()
+                lastrun = datetime.datetime.now()
+                self.log.debug("Waiting for %s seconds..." % self.polling_interval)    
+            time.sleep(self.thread_loop_interval)
+
+    def join(self,timeout=None):
+        if not self.stopevent.isSet():
+            self.log.debug('joining thread')
+            self.stopevent.set()
+            #self._join()
+            #threading.Thread.join(self, timeout)
+
+
 
 class VC3Task(object):
     '''
