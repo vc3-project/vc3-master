@@ -5,7 +5,7 @@
 
 from vc3.task import VC3Task
 
-class InitResources(VC3Task):
+class CheckAllocations(VC3Task):
     '''
     Plugin to do consistency/sanity checks on Allocations.
      
@@ -14,3 +14,4 @@ class InitResources(VC3Task):
     def runtask(self):
         '''
         '''
+        self.log.debug("Running task %s" % self.section)

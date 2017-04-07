@@ -20,3 +20,4 @@ class InitResources(VC3Task):
     def runtask(self):
         '''
         '''
+        self.log.debug("Running task %s" % self.section)

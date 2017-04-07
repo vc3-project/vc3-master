@@ -39,6 +39,7 @@ sys.path.append(libpath)
 from pluginmanager import PluginManager
 from vc3.infoclient import InfoClient 
 from vc3.core import VC3Core
+from vc3.task import VC3TaskSet
 
 class VC3Master(object):
     
@@ -57,14 +58,30 @@ class VC3Master(object):
         self.log.debug("chainfile=%s" % self.chainfile)
         
         self.infoclient = InfoClient(config)    
+        
+        self.taskconfig = ConfigParser()
+        self.taskconfig.read(os.path.expanduser(self.config.get('master','taskconf')))
+
+        self.tasksets = []
+        for tset in self.taskconfig.sections():
+            self.log.debug("Handling taskset %s" % tset)
+            ts = VC3TaskSet(self.taskconfig, tset)
+            self.tasksets.append(ts)
+        self.log.debug('Tasksets loaded.')
+            
         self.log.debug('VC3Master class done.')
 
         self.current_sites = {}
+    
         
     def run(self):
         self.log.debug('Master running...')
+        for ts in self.tasksets:
+            self.log.debug("Starting taskset thread %s" % ts.section)
+            ts.start()
+        self.log.debug("All TaskSet threads started...")
+        
         while True:
-
             self.log.debug("Master polling....")
             doc = self.infoclient.getdocument('request')
 
