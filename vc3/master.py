@@ -361,6 +361,7 @@ John Hover <jhover@bnl.gov>
             
         except KeyboardInterrupt:
             self.log.info('Caught keyboard interrupt - exitting')
+            vc3m.join()
             sys.exit(0)
         except ImportError, errorMsg:
             self.log.error('Failed to import necessary python module: %s' % errorMsg)
