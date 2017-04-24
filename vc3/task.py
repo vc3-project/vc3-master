@@ -13,7 +13,7 @@ class VC3TaskSet(threading.Thread):
     This object contains Tasks to be run sequentiall every 
     
     '''
-    def __init__(self, config, section):
+    def __init__(self, parent, config, section):
         '''
         Contains one or more task plugins, which are run sequentially every <polling_interval> seconds. 
         '''
@@ -21,6 +21,7 @@ class VC3TaskSet(threading.Thread):
         threading.Thread.__init__(self) # init the thread
         self.stopevent = threading.Event()
         self.thread_loop_interval = 1
+        self.parent = parent
         self.config = config
         self.section = section
         self.polling_interval = int(self.config.get(self.section, 'polling_interval')) 
@@ -54,6 +55,7 @@ class VC3TaskSet(threading.Thread):
                 lastrun = datetime.datetime.now()
                 self.log.debug("Waiting for %s seconds..." % self.polling_interval)    
             time.sleep(self.thread_loop_interval)
+
 
     def join(self,timeout=None):
         if not self.stopevent.isSet():

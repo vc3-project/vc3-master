@@ -65,7 +65,7 @@ class VC3Master(object):
         self.tasksets = []
         for tset in self.taskconfig.sections():
             self.log.debug("Handling taskset %s" % tset)
-            ts = VC3TaskSet(self.taskconfig, tset)
+            ts = VC3TaskSet(self, self.taskconfig, tset)
             self.tasksets.append(ts)
         self.log.debug('Tasksets loaded.')
             
@@ -80,56 +80,7 @@ class VC3Master(object):
             self.log.debug("Starting taskset thread %s" % ts.section)
             ts.start()
         self.log.debug("All TaskSet threads started...")
-        
-        while True:
-            self.log.debug("Master polling....")
-            doc = self.infoclient.getdocument('request')
-
-            if doc:
-                self.process_requests(doc)
-            time.sleep(5)
-       
-    def process_requests(self, doc):
-        try:
-            ds = json.loads(doc)
-        except Exception as e:
-            raise e
-
-        try:
-            requests = ds['request']
-        except KeyError:
-            # no requests available
-            return
-
-        for site_name in requests:
-            self.process_request(site_name, requests[site_name])
-
-        # terminate site requests that are no longer present
-        sites_to_delete = []
-        for site_name in self.current_sites:
-            if not site_name in requests:
-                self.current_sites[site_name].terminate()
-                sites_to_delete.append(site_name)
-
-        # because deleting from current iterator is bad juju
-        for site_name in sites_to_delete:
-            del self.current_sites[site_name]
-
-    def process_request(self, site_name, request):
-        if not site_name in self.current_sites:
-            if 'action' in request:
-                action = request['action']
-                if action == 'spawn':
-                    def launch_core():
-                        # probably this should we handle by the execute plugin
-                        cmd = ['vc3-core', '--requestid', site_name]
-                        subprocess.check_call(cmd)
-                    #launch_core() # for testing
-                    #sys.exit(1)
-                    self.current_sites[site_name] = Process(target = launch_core)
-                    self.current_sites[site_name].start()
-            else:
-                self.log.info("Malformed request for '%s' : no action specified." % (site_name,))
+      
     def shutdown(self):
         self.log.debug("Got shutdown command...")
         for ts in self.tasksets:
@@ -370,9 +321,11 @@ John Hover <jhover@bnl.gov>
             self.log.info('Caught keyboard interrupt - exitting')
             vc3m.shutdown()
             sys.exit(0)
+        
         except ImportError, errorMsg:
             self.log.error('Failed to import necessary python module: %s' % errorMsg)
             sys.exit(1)
+        
         except:
             self.log.error('''Unexpected exception!''')
             # The following line prints the exception to the logging module
