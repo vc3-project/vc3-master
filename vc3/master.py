@@ -41,7 +41,7 @@ from vc3.infoclient import InfoClient
 from vc3.core import VC3Core
 from vc3.task import VC3TaskSet
 
-class VC3Master(object):
+class VC3Master():
     
     def __init__(self, config):
         self.log = logging.getLogger()
@@ -80,6 +80,7 @@ class VC3Master(object):
             self.log.debug("Starting taskset thread %s" % ts.section)
             ts.start()
         self.log.debug("All TaskSet threads started...")
+        
       
     def shutdown(self):
         self.log.debug("Got shutdown command...")
@@ -317,6 +318,9 @@ John Hover <jhover@bnl.gov>
             vc3m = VC3Master(self.config)
             vc3m.run()
             
+            while True:
+                time.sleep(2)
+            
         except KeyboardInterrupt:
             self.log.info('Caught keyboard interrupt - exitting')
             vc3m.shutdown()
@@ -324,6 +328,7 @@ John Hover <jhover@bnl.gov>
         
         except ImportError, errorMsg:
             self.log.error('Failed to import necessary python module: %s' % errorMsg)
+            vc3m.shutdown()
             sys.exit(1)
         
         except:
@@ -331,6 +336,7 @@ John Hover <jhover@bnl.gov>
             # The following line prints the exception to the logging module
             self.log.error(traceback.format_exc(None))
             print(traceback.format_exc(None))
+            vc3m.shutdown()
             sys.exit(1)          
 
 if __name__ == '__main__':

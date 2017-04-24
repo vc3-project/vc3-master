@@ -49,6 +49,7 @@ class VC3TaskSet(threading.Thread):
         tdinterval = datetime.timedelta(seconds = self.polling_interval)
         lastrun = datetime.datetime(2000, 12, 1)
         while not self.stopevent.isSet():
+            #self.log.debug("Checking interval...")
             if datetime.datetime.now() - lastrun > tdinterval:
                 for p in self.tasks:            
                     p.runtask()
