@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # 
 #
+import json
+
 from vc3.task import VC3Task
 
 class InitInstanceAuth(VC3Task):
