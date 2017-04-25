@@ -36,7 +36,12 @@ class InitInstanceAuth(VC3Task):
         except KeyError:
             # no vc3 section
             self.log.debug("No vc3 section in doc.")
-        
-        
+            ccstr = self.parent.parent.ssca.getcertchain()
+            eccstr = self.parent.parent.infoclient.encode(ccstr)
+            
+            ds['vc3'] = { "ca-chain" : eccstr }
+            jd = json.dumps(ds)
+            self.parent.parent.infoclient.getdocument('vc3',jd)
+            
         
             
