@@ -54,6 +54,17 @@ class VC3Master():
         self.certfile  = os.path.expanduser(config.get('netcomm','certfile'))
         self.keyfile   = os.path.expanduser(config.get('netcomm', 'keyfile'))
         self.chainfile = os.path.expanduser(config.get('netcomm','chainfile'))
+        
+        self.dynpluginname = config.get('dynamic','plugin')
+        self.dynpluginsection = "plugin-%s" % self.dynpluginname.lower() 
+        
+        pm = PluginManager()
+        self.log.debug("Creating dynamic plugin...")
+        self.dynamic = pm.getplugin(parent=self, 
+                                    paths=['vc3', 'plugins', 'dynamic'], 
+                                    name=self.dynpluginname, 
+                                    config=self.config, 
+                                    section=self.dynpluginsection)
 
         self.log.debug("certfile=%s" % self.certfile)
         self.log.debug("keyfile=%s" % self.keyfile)
@@ -74,12 +85,10 @@ class VC3Master():
             self.log.debug("Handling taskset %s" % tset)
             ts = VC3TaskSet(self, self.taskconfig, tset)
             self.tasksets.append(ts)
-        self.log.debug('Tasksets loaded.')
+        self.log.debug('Tasksets loaded.')        
             
         self.log.debug('VC3Master class done.')
-
-        self.current_sites = {}
-    
+   
         
     def run(self):
         self.log.debug('Master running...')
