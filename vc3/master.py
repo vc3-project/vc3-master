@@ -71,7 +71,7 @@ class VC3Master():
         self.log.debug("chainfile=%s" % self.chainfile)
 
         self.credconfig = ConfigParser()
-        self.taskconfig.read(os.path.expanduser(self.config.get('credible','credconf')))
+        self.credconfig.read(os.path.expanduser(self.config.get('credible','credconf')))
         
         self.ssca = SSCA( self.credconfig ) 
 
