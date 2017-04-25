@@ -41,7 +41,7 @@ class InitInstanceAuth(VC3Task):
             
             ds['vc3'] = { "ca-chain" : eccstr }
             jd = json.dumps(ds)
-            self.parent.parent.infoclient.getdocument('vc3',jd)
+            self.parent.parent.infoclient.storedocument('vc3',jd)
             
         
             
