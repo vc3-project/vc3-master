@@ -1,6 +1,7 @@
 #
 # Dynamic plugin to simply execute on local host via command line. 
 #
+import logging
 
 class Execute(object):
 
