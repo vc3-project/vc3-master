@@ -33,6 +33,7 @@ class InitInstanceAuth(VC3Task):
 
         try:
             requests = ds['vc3']
+            self.log.debug("vc3 section already in doc. Doing nothing.")
         except KeyError:
             # no vc3 section
             self.log.debug("No vc3 section in doc.")
