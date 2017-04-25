@@ -39,7 +39,7 @@ class InitInstanceAuth(VC3Task):
             ccstr = self.parent.parent.ssca.getcertchain()
             eccstr = self.parent.parent.infoclient.encode(ccstr)
             
-            ds['vc3'] = { "ca-chain" : eccstr }
+            ds['vc3'] = { "ca-chain" : eccstr, "encoding" : "base64" }
             jd = json.dumps(ds)
             self.parent.parent.infoclient.storedocument('vc3',jd)
             
