@@ -40,6 +40,8 @@ from pluginmanager import PluginManager
 from vc3.infoclient import InfoClient 
 from vc3.core import VC3Core
 from vc3.task import VC3TaskSet
+from credible.core import SSCA, SSHKeyManager
+
 
 class VC3Master():
     
@@ -56,9 +58,14 @@ class VC3Master():
         self.log.debug("certfile=%s" % self.certfile)
         self.log.debug("keyfile=%s" % self.keyfile)
         self.log.debug("chainfile=%s" % self.chainfile)
+
+        self.credconfig = ConfigParser()
+        self.taskconfig.read(os.path.expanduser(self.config.get('credible','credconf')))
         
-        self.infoclient = InfoClient(config)    
-        
+        self.ssca = SSCA( self.credconfig ) 
+
+        self.infoclient = InfoClient(config)   
+       
         self.taskconfig = ConfigParser()
         self.taskconfig.read(os.path.expanduser(self.config.get('master','taskconf')))
 

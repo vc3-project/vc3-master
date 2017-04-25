@@ -3,8 +3,8 @@ Description=on and off VC3 master
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/cvmfsreplica.start
-ExecStop=/usr/sbin/cvmfsreplica.stop
+ExecStart=/usr/bin/vc3-master.init start
+ExecStop=/usr/bin/vc3-master.init stop
 
 [Install]
 WantedBy=multi-user.target
