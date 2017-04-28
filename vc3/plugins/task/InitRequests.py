@@ -22,4 +22,4 @@ class InitRequests(VC3Task):
     def runtask(self):
         '''
         '''
-        self.log.debug("Running task %s" % self.section)
+        self.log.info("Running task %s" % self.section)

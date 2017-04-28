@@ -16,7 +16,7 @@ class HandleWQSites(VC3Task):
     def runtask(self):
         '''
         '''
-        self.log.debug("Running task %s" % self.section)
+        self.log.info("Running task %s" % self.section)
         self.log.debug("Polling master....")
         doc = self.parent.parent.infoclient.getdocument('request')
         if doc:

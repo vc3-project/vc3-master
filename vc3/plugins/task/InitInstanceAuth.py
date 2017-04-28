@@ -21,7 +21,7 @@ class InitInstanceAuth(VC3Task):
     def runtask(self):
         '''
         '''
-        self.log.debug("Running task %s" % self.section)
+        self.log.info("Running task %s" % self.section)
         self.log.debug("Getting 'vc3' doc.")
         try:
             doc = self.parent.parent.infoclient.getdocument('vc3')
