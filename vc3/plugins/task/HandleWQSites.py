@@ -37,32 +37,34 @@ class HandleWQSites(VC3Task):
             # no requests available
             return
 
-        for site_name in requests:
-            self.process_request(site_name, requests[site_name])
+        for requestid in requests:
+            self.process_request(requestid, requests[requestid])
 
         # terminate site requests that are no longer present
         sites_to_delete = []
-        for site_name in self.current_sites:
-            if not site_name in requests:
-                self.current_sites[site_name].terminate()
-                sites_to_delete.append(site_name)
+        for requestid in self.current_sites:
+            if not requestid in requests:
+                self.current_sites[requestid].terminate()
+                sites_to_delete.append(requestid)
 
         # because deleting from current iterator is bad juju
-        for site_name in sites_to_delete:
-            del self.current_sites[site_name]
+        for requestid in sites_to_delete:
+            del self.current_sites[requestid]
 
-    def process_request(self, site_name, request):
-        if not site_name in self.current_sites:
+    def process_request(self, requestid, request):
+        if not requestid in self.current_sites:
             if 'action' in request:
                 action = request['action']
                 if action == 'spawn':
                     def launch_core():
                         # probably this should we handle by the execute plugin
-                        cmd = ['vc3-core', '--requestid', site_name]
+                        cmd = ['vc3-core', '--requestid', requestid]
                         subprocess.check_call(cmd)
                     #launch_core() # for testing
                     #sys.exit(1)
-                    self.current_sites[site_name] = Process(target = launch_core)
-                    self.current_sites[site_name].start()
+                    self.current_sites[requestid] = Process(target = launch_core)
+                    self.current_sites[requestid].start()
             else:
-                self.log.info("Malformed request for '%s' : no action specified." % (site_name,))
+                self.log.info("Malformed request for '%s' : no action specified." % (requestid,))
+
+
