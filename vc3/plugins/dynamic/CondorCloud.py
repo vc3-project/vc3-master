@@ -1,11 +1,11 @@
 '''
-  Dynamic plugin to simply execute on local host via command line. 
+Dynamic plugin to launch VM via Condor-G
+
 '''
 
 import logging
 
-
-class Execute(object):
+class CondorCloud(object):
 
     def __init__(self, parent, config, section):
         self.log = logging.getLogger()    
@@ -18,15 +18,15 @@ class Execute(object):
         
     def launch(self, name, config=None, cmd=None):
         '''
-        Launches a process using the command given. Stores info about the 
-        process indexed by <name> for later action. 
-        
+        Launches a VM on configured cloud via Condor-G. 
+        Labels the instance with label <name>.
+        Triggers command <cmd> on boot via cloud-init. 
+          
         '''
         
         
     def terminate(self, name):
         '''
-        Terminates the process with label <name>
+        Terminates the VM with label <name>
         
         '''
-    
