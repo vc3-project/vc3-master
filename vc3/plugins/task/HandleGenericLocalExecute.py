@@ -36,6 +36,9 @@ class HandleGenericLocalExecute(VC3Task):
         else:
             self.log.debug("No request doc.")
 
+    def write_conf(self, requestid, request):
+        pass
+
     def process_requests(self, doc):
         try:
             ds = json.loads(doc)
@@ -73,6 +76,9 @@ class HandleGenericLocalExecute(VC3Task):
                         subprocess.check_call(cmd)
                     #launch_core() # for testing
                     #sys.exit(1)
+
+                    self.write_conf(self, requestid, request)
+                    # call exec pluging below, using conf written above...
                     self.requestids[requestid] = Process(target = launch_core)
                     self.requestids[requestid].start()
             else:
