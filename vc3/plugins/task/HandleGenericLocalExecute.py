@@ -3,16 +3,27 @@
 import json
 
 from vc3.task import VC3Task
-from pluginmanager import PluginManager
 from vc3.infoclient import InfoClient 
 
+import pluginmanager as pm
 
-class HandleWQSites(VC3Task):
+
+class HandleGenericLocalExecute(VC3Task):
     '''
     Plugin to transition Requests from 'new' to 'initialized' state.
      
     '''
+
+    def __init__(self, parent, config, section):
+        super(HandleGenericLocalExecute, self).__init__(parent, config, section)
+
+        # current sites being served, key-ed by requestid
+        self.requestids     = {}
+        # current confs files, key-ed by requestid. keep them here so we can erase
+        # them later.
+        self.configurations = {}
     
+
     def runtask(self):
         '''
         '''
@@ -42,17 +53,17 @@ class HandleWQSites(VC3Task):
 
         # terminate site requests that are no longer present
         sites_to_delete = []
-        for requestid in self.current_sites:
+        for requestid in self.requestids:
             if not requestid in requests:
-                self.current_sites[requestid].terminate()
+                self.requestids[requestid].terminate()
                 sites_to_delete.append(requestid)
 
         # because deleting from current iterator is bad juju
         for requestid in sites_to_delete:
-            del self.current_sites[requestid]
+            del self.requestids[requestid]
 
     def process_request(self, requestid, request):
-        if not requestid in self.current_sites:
+        if not requestid in self.requestids:
             if 'action' in request:
                 action = request['action']
                 if action == 'spawn':
@@ -62,8 +73,8 @@ class HandleWQSites(VC3Task):
                         subprocess.check_call(cmd)
                     #launch_core() # for testing
                     #sys.exit(1)
-                    self.current_sites[requestid] = Process(target = launch_core)
-                    self.current_sites[requestid].start()
+                    self.requestids[requestid] = Process(target = launch_core)
+                    self.requestids[requestid].start()
             else:
                 self.log.info("Malformed request for '%s' : no action specified." % (requestid,))
 

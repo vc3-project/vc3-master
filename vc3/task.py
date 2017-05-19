@@ -6,7 +6,8 @@ import logging
 import threading
 import datetime
 import time
-from pluginmanager import PluginManager
+
+import pluginmanager as pm
 
 class VC3TaskSet(threading.Thread):
     '''
@@ -30,7 +31,6 @@ class VC3TaskSet(threading.Thread):
         for pis in pil:
             self.pluginstrs.append(pis.strip())       
         self.tasks = []
-        pm = PluginManager()
         for pn in self.pluginstrs:
             self.log.debug("Loading task plugin %s" % pn)
             p = pm.getplugin(parent=self,
