@@ -41,8 +41,8 @@ class HandleGenericLocalExecute(VC3Task):
 
     def write_conf(self, requestid, request):
         conf = ConfigParser.RawConfigParser()
-        conf.add_section('core')
-        conf.set('core', 'requestid', requestid)
+        conf.add_section(requestid)
+        conf.set(requestid, 'requestid', requestid)
 
         vardir = os.path.expanduser('~/var/confs')
         os.makedirs(vardir)
@@ -51,6 +51,8 @@ class HandleGenericLocalExecute(VC3Task):
         with open(confName, 'w') as confFile:
             conf.write(confFile)
             self.configurations = confName
+
+        return confName
 
 
     def process_requests(self, doc):
@@ -74,6 +76,7 @@ class HandleGenericLocalExecute(VC3Task):
             if not requestid in requests:
                 self.requestids[requestid].terminate()
                 sites_to_delete.append(requestid)
+                os.remove(self.configurations[requestid])
 
         # because deleting from current iterator is bad juju
         for requestid in sites_to_delete:
@@ -84,6 +87,11 @@ class HandleGenericLocalExecute(VC3Task):
             if 'action' in request:
                 action = request['action']
                 if action == 'spawn':
+                    conf = self.write_conf(requestid, request)
+
+                    # call exec pluging below, using conf written above...
+                    self.requestids[requestid] = Execute(parent = self, config = conf, section = requestid)
+
                     def launch_core():
                         # probably this should we handle by the execute plugin
                         cmd = ['vc3-core', '--requestid', requestid]
@@ -95,6 +103,7 @@ class HandleGenericLocalExecute(VC3Task):
                     # call exec pluging below, using conf written above...
                     self.requestids[requestid] = Process(target = launch_core)
                     self.requestids[requestid].start()
+
             else:
                 self.log.info("Malformed request for '%s' : no action specified." % (requestid,))
 
