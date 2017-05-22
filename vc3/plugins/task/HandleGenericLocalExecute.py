@@ -22,10 +22,6 @@ class HandleGenericLocalExecute(VC3Task):
 
         # current sites being served, key-ed by requestid
         self.requestids     = {}
-        # current confs files, key-ed by requestid. keep them here so we can erase
-        # them later.
-        self.configurations = {}
-    
 
     def runtask(self):
         '''
@@ -39,21 +35,12 @@ class HandleGenericLocalExecute(VC3Task):
         else:
             self.log.debug("No request doc.")
 
-    def write_conf(self, requestid, request):
+    def prepare_conf(self, requestid, request):
         conf = ConfigParser.RawConfigParser()
         conf.add_section(requestid)
         conf.set(requestid, 'requestid', requestid)
 
-        vardir = os.path.expanduser('~/var/confs')
-        os.makedirs(vardir)
-
-        confName = os.path.join(vardir, requestid + '.localcore.conf')
-        with open(confName, 'w') as confFile:
-            conf.write(confFile)
-            self.configurations = confName
-
-        return confName
-
+        return conf
 
     def process_requests(self, doc):
         try:
@@ -76,7 +63,6 @@ class HandleGenericLocalExecute(VC3Task):
             if not requestid in requests:
                 self.requestids[requestid].terminate()
                 sites_to_delete.append(requestid)
-                os.remove(self.configurations[requestid])
 
         # because deleting from current iterator is bad juju
         for requestid in sites_to_delete:
@@ -87,23 +73,8 @@ class HandleGenericLocalExecute(VC3Task):
             if 'action' in request:
                 action = request['action']
                 if action == 'spawn':
-                    conf = self.write_conf(requestid, request)
-
-                    # call exec pluging below, using conf written above...
+                    conf = self.prepare_conf(requestid, request)
                     self.requestids[requestid] = Execute(parent = self, config = conf, section = requestid)
-
-                    def launch_core():
-                        # probably this should we handle by the execute plugin
-                        cmd = ['vc3-core', '--requestid', requestid]
-                        subprocess.check_call(cmd)
-                    #launch_core() # for testing
-                    #sys.exit(1)
-
-                    self.write_conf(requestid, request)
-                    # call exec pluging below, using conf written above...
-                    self.requestids[requestid] = Process(target = launch_core)
-                    self.requestids[requestid].start()
-
             else:
                 self.log.info("Malformed request for '%s' : no action specified." % (requestid,))
 
