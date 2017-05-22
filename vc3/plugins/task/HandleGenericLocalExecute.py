@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
+import ConfigParser
+import os
 import json
 
 from vc3.task import VC3Task
 from vc3.infoclient import InfoClient 
 
 import pluginmanager as pm
+
 
 
 class HandleGenericLocalExecute(VC3Task):
@@ -37,7 +40,18 @@ class HandleGenericLocalExecute(VC3Task):
             self.log.debug("No request doc.")
 
     def write_conf(self, requestid, request):
-        pass
+        conf = ConfigParser.RawConfigParser()
+        conf.add_section('core')
+        conf.set('core', 'requestid', requestid)
+
+        vardir = os.path.expanduser('~/var/confs')
+        os.makedirs(vardir)
+
+        confName = os.path.join(vardir, requestid + '.localcore.conf')
+        with open(confName, 'w') as confFile:
+            conf.write(confFile)
+            self.configurations = confName
+
 
     def process_requests(self, doc):
         try:
@@ -77,7 +91,7 @@ class HandleGenericLocalExecute(VC3Task):
                     #launch_core() # for testing
                     #sys.exit(1)
 
-                    self.write_conf(self, requestid, request)
+                    self.write_conf(requestid, request)
                     # call exec pluging below, using conf written above...
                     self.requestids[requestid] = Process(target = launch_core)
                     self.requestids[requestid].start()
