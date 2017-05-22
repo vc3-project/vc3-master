@@ -17,9 +17,9 @@ class Execute(object):
 
         self.processes = {}
         
-
-    def start(self, dynConfig, secname):
-        requestid = self.dynConfig.get(secname, 'requestid')
+    def start(self, config):
+        # Note this conf is different from self.conf!
+        requestid = config.get('core', 'requestid')
         if requestid in self.processes:
             if self.processes[requestid].is_alive():
                 raise Exception('A local core is already running with requestid: ' + requestid)

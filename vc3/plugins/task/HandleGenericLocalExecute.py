@@ -20,6 +20,12 @@ class HandleGenericLocalExecute(VC3Task):
     def __init__(self, parent, config, section):
         super(HandleGenericLocalExecute, self).__init__(parent, config, section)
 
+        self.dynamic = pm.getplugin(parent=self, 
+                                    paths=['vc3', 'plugins', 'dynamic'], 
+                                    name='Execute',
+                                    config=self.config, 
+                                    section='execute-plugin')
+
         # current sites being served, key-ed by requestid
         self.requestids     = {}
 
@@ -36,9 +42,18 @@ class HandleGenericLocalExecute(VC3Task):
             self.log.debug("No request doc.")
 
     def prepare_conf(self, requestid, request):
-        conf = ConfigParser.RawConfigParser()
-        conf.add_section(requestid)
-        conf.set(requestid, 'requestid', requestid)
+        conf = ConfigParser.SafeConfigParser()
+        conf.add_section('core')
+        conf.set('core', 'requestid', requestid)
+
+        confFileNameBase = os.path.expanduser('~/var/confs/')
+
+        if not os.path.isdir(confFileNameBase):
+            os.makedirs(confFileNameBase)
+
+        confFileName = os.path.join(confFileNameBase, requestid + '.local.core.conf')
+        with open(confFileName, 'w') as f:
+            conf.write(f)
 
         return conf
 
@@ -74,7 +89,7 @@ class HandleGenericLocalExecute(VC3Task):
                 action = request['action']
                 if action == 'spawn':
                     conf = self.prepare_conf(requestid, request)
-                    self.requestids[requestid] = Execute(parent = self, config = conf, section = requestid)
+                    self.requestids[requestid] = self.dynamic.start(config = conf)
             else:
                 self.log.info("Malformed request for '%s' : no action specified." % (requestid,))
 
