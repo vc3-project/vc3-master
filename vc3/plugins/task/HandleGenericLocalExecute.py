@@ -46,14 +46,15 @@ class HandleGenericLocalExecute(VC3Task):
         conf.add_section('core')
         conf.set('core', 'requestid', requestid)
 
-        confFileNameBase = os.path.expanduser('~/var/confs/')
 
+        #### write conf only for debugging!
+        confFileNameBase = os.path.expanduser('~/var/confs/')
         if not os.path.isdir(confFileNameBase):
             os.makedirs(confFileNameBase)
-
         confFileName = os.path.join(confFileNameBase, requestid + '.local.core.conf')
         with open(confFileName, 'w') as f:
             conf.write(f)
+        ###
 
         return conf
 
