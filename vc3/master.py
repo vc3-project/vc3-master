@@ -27,16 +27,13 @@ import traceback
 from optparse import OptionParser
 from ConfigParser import ConfigParser
 
-import subprocess
-from multiprocessing import Process
-
-
 # Since script is in package "vc3" we can know what to add to path for 
 # running directly during development
 (libpath,tail) = os.path.split(sys.path[0])
 sys.path.append(libpath)
 
-from pluginmanager import PluginManager
+import pluginmanager as pm
+
 from vc3.infoclient import InfoClient 
 from vc3.core import VC3Core
 from vc3.task import VC3TaskSet
@@ -58,7 +55,6 @@ class VC3Master():
         self.dynpluginname = config.get('dynamic','plugin')
         self.dynpluginsection = "plugin-%s" % self.dynpluginname.lower() 
         
-        pm = PluginManager()
         self.log.debug("Creating dynamic plugin...")
         self.dynamic = pm.getplugin(parent=self, 
                                     paths=['vc3', 'plugins', 'dynamic'], 
@@ -352,7 +348,10 @@ John Hover <jhover@bnl.gov>
             # The following line prints the exception to the logging module
             self.log.error(traceback.format_exc(None))
             print(traceback.format_exc(None))
-            vc3m.shutdown()
+            try:
+                vc3m.shutdown()
+            except UnboundLocalError:
+                self.log.error('''Master did not even start''')
             sys.exit(1)          
 
 if __name__ == '__main__':
