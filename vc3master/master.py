@@ -34,13 +34,11 @@ sys.path.append(libpath)
 
 import pluginmanager as pm
 
-from vc3.infoclient import InfoClient 
-from vc3.core import VC3Core
-from vc3.task import VC3TaskSet
+from vc3infoservice.infoclient import InfoClient 
+from vc3master.task import VC3TaskSet
 from credible.core import SSCA, SSHKeyManager
 
-
-class VC3Master():
+class VC3Master(object):
     
     def __init__(self, config):
         self.log = logging.getLogger()
