@@ -2,7 +2,7 @@
 #
 # Very simple wrapper to go in /usr/bin to be executed by init script. 
 #
-from vc3.master import VC3MasterCLI
+from vc3master.master import VC3MasterCLI
 
 def main():
     '''
