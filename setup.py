@@ -83,10 +83,10 @@ setup(
     maintainer='VC3 team',
     maintainer_email='vc3-project@googlegroups.com',
     url='http://virtualclusters.org/',
-    packages=['vc3',
-              'vc3.plugins',
-              'vc3.plugins.dynamic',
-              'vc3.plugins.task'
+    packages=['vc3master',
+              'vc3master.plugins',
+              'vc3master.plugins.dynamic',
+              'vc3master.plugins.task'
              ],
     scripts=['scripts/vc3-master'],
     
