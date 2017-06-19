@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-from vc3.task import VC3Task
+from vc3master.task import VC3Task
 
 class CheckResourceAccess(VC3Task):
     '''

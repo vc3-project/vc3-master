@@ -4,8 +4,8 @@ import ConfigParser
 import os
 import json
 
-from vc3.task import VC3Task
-from vc3.infoclient import InfoClient 
+from vc3master.task import VC3Task
+from vc3infoservice.infoclient import InfoClient 
 
 import pluginmanager as pm
 

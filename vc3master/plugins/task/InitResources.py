@@ -9,7 +9,7 @@
 #
 #
 
-from vc3.task import VC3Task
+from vc3master.task import VC3Task
 
 class InitResources(VC3Task):
     '''

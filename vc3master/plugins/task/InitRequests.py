@@ -10,7 +10,7 @@
 #     -- confirm core launched 
 #     -- store request in state 'initialized'
 #
-from vc3.task import VC3Task
+from vc3master.task import VC3Task
 
 class InitRequests(VC3Task):
     '''
