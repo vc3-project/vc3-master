@@ -9,8 +9,6 @@ from vc3infoservice.infoclient import InfoClient
 
 import pluginmanager as pm
 
-
-
 class HandleGenericLocalExecute(VC3Task):
     '''
     Plugin to transition Requests from 'new' to 'initialized' state.
