@@ -34,7 +34,7 @@ class VC3TaskSet(threading.Thread):
         for pn in self.pluginstrs:
             self.log.debug("Loading task plugin %s" % pn)
             p = pm.getplugin(parent=self,
-                             paths=['vc3','plugins','task'],
+                             paths=['vc3master','plugins','task'],
                              name=pn,
                              config=self.config,
                              section=self.section)
