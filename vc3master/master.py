@@ -50,15 +50,15 @@ class VC3Master(object):
         self.keyfile   = os.path.expanduser(config.get('netcomm', 'keyfile'))
         self.chainfile = os.path.expanduser(config.get('netcomm','chainfile'))
         
-        self.dynpluginname = config.get('dynamic','plugin')
-        self.dynpluginsection = "plugin-%s" % self.dynpluginname.lower() 
+        #self.dynpluginname = config.get('dynamic','plugin')
+        #self.dynpluginsection = "plugin-%s" % self.dynpluginname.lower() 
         
-        self.log.debug("Creating dynamic plugin...")
-        self.dynamic = pm.getplugin(parent=self, 
-                                    paths=['vc3', 'plugins', 'dynamic'], 
-                                    name=self.dynpluginname, 
-                                    config=self.config, 
-                                    section=self.dynpluginsection)
+        #self.log.debug("Creating dynamic plugin...")
+        #self.dynamic = pm.getplugin(parent=self, 
+        #                            paths=['vc3', 'plugins', 'dynamic'], 
+        #                            name=self.dynpluginname, 
+        #                            config=self.config, 
+        #                            section=self.dynpluginsection)
 
         self.log.debug("certfile=%s" % self.certfile)
         self.log.debug("keyfile=%s" % self.keyfile)
