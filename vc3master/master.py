@@ -34,7 +34,7 @@ sys.path.append(libpath)
 
 import pluginmanager as pm
 
-from vc3infoservice.infoclient import InfoClient, PairingClient 
+from vc3infoservice.infoclient import InfoClient
 from vc3master.task import VC3TaskSet
 from credible.core import SSCA, SSHKeyManager
 
@@ -70,7 +70,6 @@ class VC3Master(object):
         self.ssca = SSCA( self.credconfig ) 
 
         self.infoclient = InfoClient(config)
-        self.pairingclient = PairingClient(config)   
        
         self.taskconfig = ConfigParser()
         self.taskconfig.read(os.path.expanduser(self.config.get('master','taskconf')))

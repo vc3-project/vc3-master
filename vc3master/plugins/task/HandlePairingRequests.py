@@ -4,7 +4,7 @@
 import json
 
 from vc3master.task import VC3Task
-from vc3infoservice.infoclient import PairingRequest, Pairing
+from vc3infoservice.infoclient import Pairing
 
 class HandlePairingRequests(VC3Task):
     '''
@@ -34,53 +34,23 @@ class HandlePairingRequests(VC3Task):
                     self.log.debug("No pairing section in doc.")
                 self.log.info("Handling pairing request(s)...")    
                     
-                for prname in ds.keys():
-                    pr = ds[prname]
-                    self.log.debug("Detected pairing request %s" % pr)
-                    pro = PairingRequest.objectFromDict(pr)
-                    self.log.debug("Made pairing request object %s" % pro)
-                    (certstr, keystr) = self.parent.parent.ssca.getusercert(pro.cn)
-                    self.log.debug("Got cert and key strings for %s" )
-                    po = Pairing(pro.name, 
-                                 pro.state, 
-                                 pro.acl, 
-                                 pro.cn, 
-                                 pro.pairingcode, 
-                                 certstr, 
-                                 keystr)        
-                    pd = po.makeDictObject()
-                    self.log.debug("Made dict %s" % pd)
-                    self.parent.parent.pairingclient.mergedocument(po.pairingcode, pd)
-                    self.log.debug("Merged doc to /pairing/%s" % po.pairingcode)
-                    
+                for poname in ds.keys():
+                    pd = ds[poname]
+                    self.log.debug("Detected pairing request %s" % poname)
+                    po = Pairing.objectFromDict(pd)
+                    self.log.debug("Made pairing object %s" % po)
+                    (certstr, keystr) = self.parent.parent.ssca.getusercert(po.cn)
+                    self.log.debug("Got cert and key strings for %s" % poname )
+                    ecertstr = self.parent.parent.infoclient.encode(certstr)
+                    ekeystr = self.parent.parent.infoclient.encode(keystr)
+                    po.cert = ecertstr
+                    po.key = ekeystr  
+                    po.store(self.parent.parent.infoclient)
+                    self.log.debug("Stored object %s" % po)
+                    #newpd = po.makeDictObject()
+                    #self.log.debug("Made dict %s" % newpd)
+                    #self.parent.parent.infoclient.storedocument('pairing', newpd)
                     
             except Exception as e:
                 self.log.error("Exception: %s" % e)
                 
-    def mergedocument(self, key, doc):
-                
-        u = "https://%s:%s/pairing?key=%s" % (self.infohost, 
-                            self.httpsport,
-                            key
-                            )
-        self.log.debug("Trying to merge document %s at %s" % (doc, u))
-        try:
-            r = requests.put(u, verify=self.chainfile, cert=(self.certfile, self.keyfile), params={'data' : doc})
-            self.log.debug(r.status_code)
-        
-        except requests.exceptions.ConnectionError, ce:
-            self.log.error('Connection failure. %s' % ce)
-    
-    def storedocumentobject(self, dict, key):
-        '''
-        Directly store Python dictionary as JSON ...
-        
-        '''
-        if key not in dict.keys():
-            td = {}
-            td[key] = dict
-            dict = td
-            
-        jstr = json.dumps(dict)
-        self.log.debug("JSON string: %s" % jstr)
-        self.storedocument(key, jstr)
