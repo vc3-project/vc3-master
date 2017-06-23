@@ -23,8 +23,9 @@ class InitInstanceAuth(VC3Task):
         '''
         self.log.info("Running task %s" % self.section)
         self.log.debug("Getting 'vc3' doc.")
+        self.ic = self.parent.parent.infoclient
         try:
-            doc = self.parent.parent.infoclient.getdocument('vc3')
+            doc = self.ic.getdocument('vc3')
             self.log.debug('Doc is %s' % doc)
         except Exception as e:
             self.log.error("Exception: %s" % e)
@@ -33,7 +34,7 @@ class InitInstanceAuth(VC3Task):
             try:
                 ds = json.loads(doc)
                 try:
-                    requests = ds['vc3']
+                    vc3 = ds['vc3']
                     self.log.debug("vc3 section already in doc. Doing nothing.")
                 except KeyError:
                     # no vc3 section

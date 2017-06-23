@@ -16,41 +16,36 @@ class HandlePairingRequests(VC3Task):
         '''
         '''
         self.log.info("Running task %s" % self.section)
-        self.log.debug("Getting 'vc3' doc.")
+        self.log.debug("Getting 'pairing' doc.")
+        self.ic = self.parent.parent.infoclient
+        self.ssca = self.parent.parent.ssca
         try:
-            doc = self.parent.parent.infoclient.getdocument('pairing')
+            doc = self.ic.getdocument('pairing')
             #self.log.debug('Doc is %s' % doc)
-        except Exception as e:
-            self.log.error("Exception: %s" % e)
-
-        if doc is not None:            
-            try:
-                ds = json.loads(doc)
-                try:
-                    pdoc = ds['pairing']
-                    self.log.debug("pairing section already in doc. Doing nothing.")
-                except KeyError:
-                    # no vc3 section
-                    self.log.debug("No pairing section in doc.")
-                self.log.info("Handling pairing request(s)...")    
-                    
-                for poname in ds.keys():
-                    pd = ds[poname]
-                    self.log.debug("Detected pairing request %s" % poname)
-                    po = Pairing.objectFromDict(pd)
-                    self.log.debug("Made pairing object %s" % po)
-                    (certstr, keystr) = self.parent.parent.ssca.getusercert(po.cn)
+            ds = json.loads(doc)
+            pdoc = ds['pairing']
+            self.log.debug("pairing section in doc. Handling request(s)...")
+            for poname in ds['pairing'].keys():
+                #pd = ds[poname]
+                self.log.debug("Detected pairing request %s" % poname)
+                #po = Pairing.objectFromDict(pd)
+                #self.log.debug("Made pairing object %s" % po)
+                if ds['pairing'][poname]['cert'] is None:                    
+                    (certstr, keystr) = self.ssca.getusercert(ds['pairing'][poname]['cn'])
                     self.log.debug("Got cert and key strings for %s" % poname )
-                    ecertstr = self.parent.parent.infoclient.encode(certstr)
-                    ekeystr = self.parent.parent.infoclient.encode(keystr)
-                    po.cert = ecertstr
-                    po.key = ekeystr  
-                    po.store(self.parent.parent.infoclient)
-                    self.log.debug("Stored object %s" % po)
-                    #newpd = po.makeDictObject()
-                    #self.log.debug("Made dict %s" % newpd)
-                    #self.parent.parent.infoclient.storedocument('pairing', newpd)
+                    ecertstr = self.ic.encode(certstr)
+                    ekeystr = self.ic.encode(keystr)
+                    ds['pairing'][poname]['cert'] = ecertstr
+                    ds['pairing'][poname]['key'] = ekeystr  
                     
-            except Exception as e:
-                self.log.error("Exception: %s" % e)
+            jd = json.dumps(ds)
+            self.ic.storedocument('pairing',jd)
+
+        except KeyError:
+        # no pairing section
+            self.log.debug("No pairing section in doc.")
+        #    ds['pairing'] = {}
+        #    jd = json.dumps(ds)
+        #    self.ic.storedocument('pairing',jd)
+
                 
