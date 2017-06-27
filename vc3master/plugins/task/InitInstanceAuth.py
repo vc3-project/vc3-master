@@ -11,7 +11,7 @@ class InitInstanceAuth(VC3Task):
     Confirm that CA exists, create host cert for this server. 
      
      
-    { "vc3": {
+    { "infoservice": {
         "ca-chain" : "<base64encoded ca chain file>"
         
         }
@@ -22,10 +22,10 @@ class InitInstanceAuth(VC3Task):
         '''
         '''
         self.log.info("Running task %s" % self.section)
-        self.log.debug("Getting 'vc3' doc.")
+        self.log.debug("Getting 'infoservice' doc.")
         self.ic = self.parent.parent.infoclient
         try:
-            doc = self.ic.getdocument('vc3')
+            doc = self.ic.getdocument('infoservice')
             self.log.debug('Doc is %s' % doc)
         except Exception as e:
             self.log.error("Exception: %s" % e)
@@ -34,17 +34,17 @@ class InitInstanceAuth(VC3Task):
             try:
                 ds = json.loads(doc)
                 try:
-                    vc3 = ds['vc3']
-                    self.log.debug("vc3 section already in doc. Doing nothing.")
+                    vc3 = ds['infoservice']
+                    self.log.debug("infoservice section already in doc. Doing nothing.")
                 except KeyError:
-                    # no vc3 section
-                    self.log.debug("No vc3 section in doc.")
+                    # no infoservice section
+                    self.log.debug("No infoservice section in doc.")
                     ccstr = self.parent.parent.ssca.getcertchain()
                     eccstr = self.parent.parent.infoclient.encode(ccstr)
-                    ds['vc3'] = { "ca-chain" : eccstr, 
+                    ds['infoservice'] = { "ca-chain" : eccstr, 
                                   "encoding" : "base64" }
                     jd = json.dumps(ds)
-                    self.parent.parent.infoclient.storedocument('vc3',jd)
+                    self.parent.parent.infoclient.storedocument('infoservice',jd)
             except Exception as e:
                 self.log.error("Exception: %s" % e)
         
