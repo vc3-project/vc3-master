@@ -6,8 +6,6 @@ from vc3master.task import VC3Task
 
 class AddFactoryConfiguration(VC3Task):
 
-    def __init__I
-
     def runtask(self):
         self.log.info("Running task %s" % self.section)
         self.infoclient = self.parent.parent.infoclient
