@@ -37,7 +37,7 @@ class AddFactoryConfiguration(VC3Task):
         }
         """
         # FIXME
-        # is there a general purpose method in VC3Task class to download docs ???
+        # maybe use infoclient.getdocumentobject()
         jsondoc = self.infoclient.getdocument('request')
         doc = json.loads(jsondoc)
         return doc
@@ -72,7 +72,7 @@ class AddFactoryConfiguration(VC3Task):
  
     def _updatedoc(self, doc):
         # FIXME
-        # is there a general purpose method in VC3Task class to upload docs ???
+        # maybe use infoclient.storedocumentobject()
         jsondoc = json.dumps(doc)
         self.infoclient.storedocument('requeset',jsondoc)
 
