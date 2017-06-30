@@ -10,11 +10,12 @@ class AddFactoryConfiguration(VC3Task):
         self.log.info("Running task %s" % self.section)
         self.infoclient = self.parent.parent.infoclient
     
-        # FIXME
-        # is there a general purpose method in VC3Task class to download docs ???
-        jsondoc = self.infoclient.getdocument('request')
-        doc = json.loads(doc)
+        doc = self._getdoc()
+        doc = self._updatedoc(doc)
+        self._uploaddoc(doc)
 
+
+    def _getdoc(self):
         """
         format of the request data structure:
 
@@ -35,9 +36,12 @@ class AddFactoryConfiguration(VC3Task):
             }
         }
         """
+        # FIXME
+        # is there a general purpose method in VC3Task class to download docs ???
+        jsondoc = self.infoclient.getdocument('request')
+        doc = json.loads(jsondoc)
+        return doc
 
-        doc = self._updatedoc(doc)
-        self._uploaddoc(doc)
 
 
     def _updatedoc(self, doc):
