@@ -38,7 +38,7 @@ rpm_data_files=[
                 ('/etc/vc3', etc_files),
                 ('/etc/sysconfig', sysconfig_files),
                 ('/etc/logrotate.d', logrotate_files),                                        
-                ('/etc/init.d', initd_files),
+                #('/etc/init.d', initd_files),
                 ('/usr/lib/systemd/system', systemd_files),                                     
                ]
 
