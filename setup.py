@@ -18,7 +18,7 @@ from distutils.core import setup
 from distutils.command.install import install as install_org
 from distutils.command.install_data import install_data as install_data_org
 
-systemd_files = [ 'etc/vc3-service-info.service' ]
+systemd_files = [ 'etc/vc3-master.service' ]
 
 etc_files = ['etc/vc3-master.conf',
              'etc/vc3-master.service',
