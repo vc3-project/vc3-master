@@ -22,6 +22,7 @@ systemd_files = [ 'etc/vc3-master.service' ]
 
 etc_files = [
              'etc/vc3-master.conf',
+             'etc/vc3-master.conf.sample',
              'etc/tasks.conf',
             ]
 
