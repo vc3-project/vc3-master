@@ -126,6 +126,7 @@ class HandleRequests(VC3Task):
             return ('terminating', "Failure: once configured, state of cluster should be set explicitly.")
 
         cluster_state = request['cluster']['state']
+        # or: cluster_state = self.figure_out_cluster_state(request['cluster'])
 
         if cluster_state not in valid:
             return ('terminating', "Failure: cluster reported invalid state '%s'")
@@ -230,5 +231,24 @@ class HandleRequests(VC3Task):
             return ('terminated', None)
 
         return self.state_by_cluster(request, ['shrinking', 'terminated'])
+
+
+    def figure_out_cluster_state(self, cluster):
+        # THIS ASSUMES ALL COMPONENTS OF THE CLUSTER HAVE THE SAME LIFETIME
+        states = []
+        for component_key in cluster:
+            component = cluster[component_key]
+            states.append(component.get('state', 'unknown'))
+
+        if 'failure' in states:
+            return 'failure'
+
+        if all( [ 'running' == x for x in states ] ):
+            return 'running'
+
+        if any( [ 'running' == x for x in states ] ):
+            return 'growing'
+
+        return None
 
 
