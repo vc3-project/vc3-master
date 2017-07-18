@@ -1,0 +1,37 @@
+[DEFAULT]
+loglevel = debug
+
+[master]
+taskconf=/etc/tasks.conf
+
+[credible]
+credconf=/etc/credible.conf
+
+[dynamic]
+# capitalization matters! Plugin file is <plugin>.py containing class 
+plugin=Execute
+# plugin=CondorCloud
+# plugin=Kubernetes??
+
+
+[netcomm]
+chainfile=/var/credible/ssca/defaultca/intermediate/certs/ca-chain.cert.pem
+certfile=/var/credible/ssca/defaultca/intermediate/certs/localhost.cert.pem
+keyfile=/var/credible/ssca/defaultca/intermediate/private/localhost.keynopw.pem
+
+infohost=localhost
+httpport=20333
+httpsport=20334
+
+[builder]
+path        = ~/../../vc3-builder
+installdir  = ~/../../vc3-dev
+homedir     = vc3-dev-home
+environment = vc3-dev
+
+[core]
+whitelist = cctools-catalog-server,vc3-factory
+
+
+
+
