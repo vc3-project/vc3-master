@@ -5,7 +5,6 @@ import os
 import json
 
 from vc3master.task import VC3Task
-from vc3client.client import VC3ClientAPI
 
 import pluginmanager as pm
 
@@ -17,7 +16,7 @@ class HandleRequests(VC3Task):
 
     def __init__(self, parent, config, section):
         super(HandleRequests, self).__init__(parent, config, section)
-        self.client = VC3ClientAPI(config)
+        self.client = parent.client
 
 
     def runtask(self):

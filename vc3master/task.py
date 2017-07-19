@@ -26,6 +26,8 @@ class VC3TaskSet(threading.Thread):
         self.config = config
         self.section = section
         self.polling_interval = int(self.config.get(self.section, 'polling_interval')) 
+        self.client = parent.client
+
         pil = self.config.get(self.section, 'taskplugins').split(',')
         self.pluginstrs=[]
         for pis in pil:
