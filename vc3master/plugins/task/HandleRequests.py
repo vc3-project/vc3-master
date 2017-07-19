@@ -5,7 +5,7 @@ import os
 import json
 
 from vc3master.task import VC3Task
-from vc3infoservice.infoclient import InfoClient 
+from vc3client.client import VC3ClientAPI
 
 import pluginmanager as pm
 
@@ -17,116 +17,79 @@ class HandleRequests(VC3Task):
 
     def __init__(self, parent, config, section):
         super(HandleRequests, self).__init__(parent, config, section)
+        self.client = VC3ClientAPI(config)
 
-        self.dynamic = pm.getplugin(parent=self, 
-                                    paths=['vc3', 'plugins', 'dynamic'], 
-                                    name='HandleRequests',
-                                    config=self.config, 
-                                    section='requests-plugin')
-
-        # current requests being tracked, key-ed by requestid
-        self.requestids     = {}
 
     def runtask(self):
         self.log.info("Running task %s" % self.section)
 
         self.log.debug("Polling master....")
-        doc = self.parent.parent.infoclient.getdocument('request')
-        if doc:
-            self.log.debug("Got Request doc. Processing...")
-            self.process_requests(doc)
-        else:
-            self.log.debug("No request doc.")
 
+        requests = self.client.listRequests()
 
-    def process_requests(self, doc):
-        try:
-            ds = json.loads(doc)
-        except Exception as e:
-            raise e
+        self.log.debug("Processing %d requests" % len(requests))
 
-        try:
-            requests = ds['request']
-        except KeyError:
-            # no requests available
-            return
+        self.process_requests(requests)
 
-        for requestid in requests:
-            self.process_request(requests[requestid])
+    def process_requests(self, requests):
+        for r in requests:
+            self.process_request(r)
 
     def process_request(self, request):
-        name           = request['name']
-        state          = request['state']
+        next_state  = None
+        reason      = None
 
-        next_state = None
-        reason     = None
-
-        if   state == 'new': 
+        if   request.state == 'new': 
             # nexts: validated, terminated
             (next_state, reason) = self.state_new(request)
 
-        elif state == 'validated':
+        if request.state == 'validated':
             # nexts: validated, configured, terminating
             # waits for cluster_state = configured | running
             (next_state, reason) = self.state_validated(request)
 
-        elif state == 'configured':
+        if request.state == 'configured':
             # nexts: configured, pending, terminating
             # waits for action = run
             (next_state, reason) = self.state_configured(request)
 
-        elif state == 'pending':
+        if request.state == 'pending':
             # nexts: pending, growing, running, terminating
             # to growing until at least one element of the request is fulfilled
             (next_state, reason) = self.state_pending(request)
 
-        elif state == 'growing':
+        if request.state == 'growing':
             # nexts: growing, shrinking, running, terminating
             # to running until all elements of the request are fulfilled
             (next_state, reason) = self.state_growing(request)
 
-        elif state == 'running':
+        if request.state == 'running':
             # nexts: shrinking, running, terminating
             # waits for action = terminate
             (next_state, reason) = self.state_running(request)
 
-        elif state == 'shrinking':
+        if request.state == 'shrinking':
             # nexts: shrinking, terminating
             # to terminating 
             (next_state, reason) = self.state_shrinking(request)
 
-        elif state == 'terminating':
+        if request.state == 'terminating':
             # waits until everything has been cleanup
             (next_state, reason) = self.state_terminating(request)
 
-        elif state == 'terminated':
+        if request.state == 'terminated':
             (next_state, reason) = (state, None)
-            pass
-
-        else:
-            raise Exception("request '%s' has invalid state '%s'", name, str(state))
-
-        return self.update_state(request, next_state, reason)
-
-    def update_state(self, request, next_state, reason):
-        if next_state is None:
-            raise Exception('Next state was not set! This should not have happened.')
 
         if reason:
-            request['state_reason'] = reason
+            request.state_reason = reason
+        request.state = next_state
 
-        obj = { 'request' : { request['name'] : request } }
-        self.parent.parent.infoclient.storedocumentobject(obj, 'request')
+        if not client.storeRequest(request):
+            raise Exception("Storing the new request state failed.")
 
     def state_by_cluster(self, request, valid):
-        if 'cluster' not in request:
-            return ('terminating', 'Failure: could not find cluster definition.')
 
-        if 'state' not in request['cluster']:
-            return ('terminating', "Failure: once configured, state of cluster should be set explicitly.")
-
-        cluster_state = request['cluster']['state']
-        # or: cluster_state = self.figure_out_cluster_state(request['cluster'])
+        cluster_state = request.cluster_state
 
         if cluster_state not in valid:
             return ('terminating', "Failure: cluster reported invalid state '%s'")
@@ -171,7 +134,7 @@ class HandleRequests(VC3Task):
         # nexts: configured, pending, terminating
         # waits for action = run
 
-        action = request.get('action', None)
+        action = request.action
 
         if not action:
             return ('configured', 'Waiting for run action.')
@@ -188,7 +151,7 @@ class HandleRequests(VC3Task):
         return self.state_by_cluster(request, ['configured', 'growing', 'running'])
 
     def state_growing(self, request):
-        action = request.get('action', None)
+        action = request.action
 
         if action not in ['run', 'terminate']:
             return ('shrinking', "Failure: once started, action should be one of run|terminate")
@@ -200,7 +163,7 @@ class HandleRequests(VC3Task):
         return self.state_by_cluster(request, ['growing', 'running'])
 
     def state_running(self, request):
-        action = request.get('action', None)
+        action = request.action
 
         if action not in ['run', 'terminate']:
             return ('shrinking', "Failure: once started, action should be one of run|terminate")
@@ -212,43 +175,24 @@ class HandleRequests(VC3Task):
         return self.state_by_cluster(request, ['running'])
 
     def state_shrinking(self, request):
-        action = request.get('action', None)
+        action = request.action
 
         if action is not 'terminate':
-            # ignoring action
+            # ignoring action... do something here?
             pass
 
         return self.state_by_cluster(request, ['shrinking', 'terminated'])
 
     def state_terminating(self, request):
-        action = request.get('action', None)
+        action = request.action
 
         if action is not 'terminate':
-            # ignoring action
+            # ignoring action... do something here?
             pass
 
         if self.is_everything_cleaned_up(request):
             return ('terminated', None)
 
         return self.state_by_cluster(request, ['shrinking', 'terminated'])
-
-
-    def figure_out_cluster_state(self, cluster):
-        # THIS ASSUMES ALL COMPONENTS OF THE CLUSTER HAVE THE SAME LIFETIME
-        states = []
-        for component_key in cluster:
-            component = cluster[component_key]
-            states.append(component.get('state', 'unknown'))
-
-        if 'failure' in states:
-            return 'failure'
-
-        if all( [ 'running' == x for x in states ] ):
-            return 'running'
-
-        if any( [ 'running' == x for x in states ] ):
-            return 'growing'
-
-        return None
 
 
