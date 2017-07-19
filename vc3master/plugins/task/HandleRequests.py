@@ -85,8 +85,11 @@ class HandleRequests(VC3Task):
             request.state_reason = reason
         request.state = next_state
 
-        if not client.storeRequest(request):
-            raise Exception("Storing the new request state failed.")
+        try:
+            self.client.storeRequest(request)
+        except Exception, e:
+            self.log.warning("Storing the new request state failed.")
+            raise e
 
     def state_by_cluster(self, request, valid):
 
@@ -129,7 +132,7 @@ class HandleRequests(VC3Task):
         return ('terminated', 'Failure: invalid request')
 
     def state_validated(self, request):
-        return self.state_by_cluster('new', 'configured')
+        return self.state_by_cluster(request, ['new', 'configured'])
 
     def state_configured(self, request):
         # nexts: configured, pending, terminating
