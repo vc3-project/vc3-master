@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 import ConfigParser
+import StringIO
+from base64 import b64encode
+
 import os
 import json
 
@@ -39,6 +42,8 @@ class HandleRequests(VC3Task):
     def process_request(self, request):
         next_state  = None
         reason      = None
+
+        self.log.debug("Processing request '%s'", request.name)
 
         if   request.state == 'new': 
             # nexts: validated, terminated
@@ -79,11 +84,14 @@ class HandleRequests(VC3Task):
             (next_state, reason) = self.state_terminating(request)
 
         if request.state == 'terminated':
-            (next_state, reason) = (state, None)
+            (next_state, reason) = (request.state, None)
 
         if reason:
             request.state_reason = reason
-        request.state = next_state
+
+        if next_state is not request.state:
+            self.log.debug("request '%s'  state '%s' -> %s'", request.name, request.state, next_state)
+            request.state = next_state
 
         try:
             self.client.storeRequest(request)
@@ -126,13 +134,18 @@ class HandleRequests(VC3Task):
         '''
         Validates all new requests. 
         '''
-
         if self.request_is_valid(request):
-            return ('validated', None)
+            try:
+                if self.add_queues_conf(request):
+                    return ('validated', None)
+            except VC3InvalidRequest, e:
+                raise e
+                return ('terminated', 'Invalid request: %s' % e.reason)
+
         return ('terminated', 'Failure: invalid request')
 
     def state_validated(self, request):
-        return self.state_by_cluster(request, ['new', 'configured'])
+        return self.state_by_cluster(request, ['validated', 'configured'])
 
     def state_configured(self, request):
         # nexts: configured, pending, terminating
@@ -199,4 +212,68 @@ class HandleRequests(VC3Task):
 
         return self.state_by_cluster(request, ['shrinking', 'terminated'])
 
+
+    def add_queues_conf(self, request):
+        config = ConfigParser.RawConfigParser()
+
+        for a in request.allocations:
+            self.generate_queues_section(config, request, a)
+
+        conf_as_string = StringIO.StringIO()
+        config.write(conf_as_string)
+
+        qconf = {
+                "name" : "queues.conf",
+                "encoding" : "base64",
+                "contents" : b64encode(conf_as_string.getvalue())
+                }
+
+        request.queuesconf = qconf
+        return qconf
+
+
+    def generate_queues_section(self, config, request, allocation_name):
+
+        name = request.name + '.' + allocation_name
+        config.add_section(name)
+
+        allocation = self.client.getAllocation(allocation_name)
+        if not allocation:
+            raise VC3InvalidRequest("Allocation '%s' has not been declared." % allocation_name, request = request)
+
+        resource = self.client.getResource(allocation.resource)
+        if not resource:
+            raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
+
+        if resource.accesstype == 'batch':
+            config.set(name, 'batchsubmitplugin',          'CondorSSH')
+            config.set(name, 'batchsubmit.condorssh.user', allocation.owner)
+            config.set(name, 'condorssh.batch',            resource.accessflavor)
+            config.set(name, 'condorssh.host',             resource.accesshost)
+            config.set(name, 'condorssh.port',             str(resource.accessport))
+            config.set(name, 'condorssh.authprofile',      allocation_name)
+            config.set(name, 'executable',                 'vc3-builder')
+            config.set(name, 'executable-args',            self.environment_args(request))
+        elif resource.accesstype == 'cloud':
+            config.set(name, 'batchsubmitplugin',          'CondorEC2')
+        else:
+            raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
+
+    def environment_args(self, request):
+        vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
+        vars  = ' '.join(['--var %s' % x for x in vs])
+        es    = request.environments
+        reqs  = ' '.join(['--require %s' % x for x in request.environments])
+        s  = vars + ' ' + reqs
+
+        return s
+
+
+class VC3InvalidRequest(Exception):
+    def __init__(self, reason, request = None):
+        self.reason  = reason
+        self.request = request
+
+    def __str__(self):
+        return str(self.reason)
 
