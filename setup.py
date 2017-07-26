@@ -4,15 +4,17 @@
 #
 #
 
-# commenting, as it creates dependency on vc3 prefix:
-release_version='0.0.1'
 
 import sys
+import re
 
 try:
     from setuptools import setup
 except ImportError:
     from distutils.core import setup
+
+# commenting, as it creates dependency on vc3 prefix:
+release_version='0.0.1'
 
 systemd_files = ['etc/vc3-master.service']
 
@@ -53,7 +55,7 @@ def choose_data_file_locations():
     if rpm_install:
         return rpm_data_files
     else:
-    return home_data_files
+        return home_data_files
 
 # ===========================================================
 
