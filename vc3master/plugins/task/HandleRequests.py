@@ -136,7 +136,7 @@ class HandleRequests(VC3Task):
         '''
         if self.request_is_valid(request):
             try:
-                if self.add_queues_conf(request):
+                if self.add_queues_conf(request) and self.add_auth_conf(request):
                     return ('validated', None)
             except VC3InvalidRequest, e:
                 raise e
@@ -225,6 +225,18 @@ class HandleRequests(VC3Task):
         request.queuesconf = b64encode(conf_as_string.getvalue())
         return request.queuesconf
 
+    def add_auth_conf(self, request):
+        config = ConfigParser.RawConfigParser()
+
+        for a in request.allocations:
+            self.generate_auth_section(config, request, a)
+
+        conf_as_string = StringIO.StringIO()
+        config.write(conf_as_string)
+
+        request.authconf = b64encode(conf_as_string.getvalue())
+        return request.authconf
+
 
     def generate_queues_section(self, config, request, allocation_name):
 
@@ -252,6 +264,31 @@ class HandleRequests(VC3Task):
             config.set(name, 'batchsubmitplugin',          'CondorEC2')
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
+
+
+    def generate_auth_section(self, config, request, allocation_name):
+
+        name = request.name + '.' + allocation_name
+        config.add_section(name)
+
+        allocation = self.client.getAllocation(allocation_name)
+        if not allocation:
+            raise VC3InvalidRequest("Allocation '%s' has not been declared." % allocation_name, request = request)
+
+        resource = self.client.getResource(allocation.resource)
+        if not resource:
+            raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
+
+        if resource.accessmethod == 'ssh':
+            config.set(name, 'plugin',        'ssh')
+            config.set(name, 'ssh.type',      allocation.accountname)
+            config.set(name, 'ssh.publickey', allocation.pubtoken)
+            config.set(name, 'ssh.privtoken', allocation.privtoken)
+        elif resource.accesstype == 'gsissh':
+            raise NoImplementedError
+        else:
+            raise VC3InvalidRequest("Unknown resource access method '%s'" % str(resource.accessmethod), request = request)
+
 
     def environment_args(self, request):
         vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
