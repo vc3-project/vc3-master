@@ -90,14 +90,14 @@ class HandleRequests(VC3Task):
             request.state_reason = reason
 
         if next_state is not request.state:
-            self.log.debug("request '%s'  state '%s' -> %s'", request.name, request.state, next_state)
-            request.state = next_state
+            try:
+                self.log.debug("request '%s'  state '%s' -> %s'", request.name, request.state, next_state)
+                request.state = next_state
+                self.client.storeRequest(request)
 
-        try:
-            self.client.storeRequest(request)
-        except Exception, e:
-            self.log.warning("Storing the new request state failed.")
-            raise e
+            except Exception, e:
+                self.log.warning("Storing the new request state failed.")
+                raise e
 
     def state_by_cluster(self, request, valid):
 
@@ -222,14 +222,8 @@ class HandleRequests(VC3Task):
         conf_as_string = StringIO.StringIO()
         config.write(conf_as_string)
 
-        qconf = {
-                "name" : "queues.conf",
-                "encoding" : "base64",
-                "contents" : b64encode(conf_as_string.getvalue())
-                }
-
-        request.queuesconf = qconf
-        return qconf
+        request.queuesconf = b64encode(conf_as_string.getvalue())
+        return request.queuesconf
 
 
     def generate_queues_section(self, config, request, allocation_name):
