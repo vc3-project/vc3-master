@@ -5,72 +5,56 @@
 #
 
 # commenting, as it creates dependency on vc3 prefix:
-#import vc3.master
-#release_version=vc3.master.__version__
 release_version='0.0.1'
 
-import commands
-import os
-import re
 import sys
 
-from distutils.core import setup
-from distutils.command.install import install as install_org
-from distutils.command.install_data import install_data as install_data_org
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
-systemd_files = [ 'etc/vc3-master.service' ]
+systemd_files = ['etc/vc3-master.service']
 
-etc_files = [
-             'etc/vc3-master.conf',
+etc_files = ['etc/vc3-master.conf',
              'etc/vc3-master.conf.sample',
-             'etc/tasks.conf',
-            ]
+             'etc/tasks.conf']
 
-sysconfig_files = [
-             'etc/sysconfig/vc3-master',
-             ]
+sysconfig_files = ['etc/sysconfig/vc3-master',]
 
-logrotate_files = [
-             'etc/logrotate/vc3-master',
-                  ]
+logrotate_files = ['etc/logrotate/vc3-master',]
 
-initd_files = [ ]
+initd_files = []
 
 rpm_data_files=[
                 ('/etc/vc3', etc_files),
                 ('/etc/sysconfig', sysconfig_files),
                 ('/etc/logrotate.d', logrotate_files),                                        
-                #('/etc/init.d', initd_files),
-                ('/usr/lib/systemd/system', systemd_files),                                     
+                ('/usr/lib/systemd/system', systemd_files),
                ]
 
-home_data_files=[#('etc', libexec_files),
-                 ('etc', etc_files),
+home_data_files=[('etc', etc_files),
                  ('etc', initd_files),
-                 ('etc', sysconfig_files),
-                ]
+                 ('etc', sysconfig_files)]
 
-def choose_data_files():
-    rpminstall = True
-    userinstall = False
-     
+
+def choose_data_file_locations():
+    rpm_install = True
+
     if 'bdist_rpm' in sys.argv:
-        rpminstall = True
+        rpm_install = True
 
-    elif 'install' in sys.argv:
-        for a in sys.argv:
-            if a.lower().startswith('--home'):
-                rpminstall = False
-                userinstall = True
-                
-    if rpminstall:
+    elif '--user' in sys.argv:
+        rpm_install = False
+
+    elif any( [ re.match('--home(=|\s)', arg) for arg in sys.argv] ):
+        rpm_install = False
+
+    if rpm_install:
         return rpm_data_files
-    elif userinstall:
-        return home_data_files
     else:
-        # Something probably went wrong, so punt
-        return rpm_data_files
-       
+    return home_data_files
+
 # ===========================================================
 
 # setup for distutils
@@ -90,6 +74,5 @@ setup(
               'vc3master.plugins.task'
              ],
     scripts=['scripts/vc3-master'],
-    
-    data_files = choose_data_files()
+    data_files=choose_data_file_locations()
 )
