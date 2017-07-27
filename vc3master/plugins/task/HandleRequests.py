@@ -104,7 +104,7 @@ class HandleRequests(VC3Task):
         cluster_state = request.cluster_state
 
         if cluster_state not in valid:
-            return ('terminating', "Failure: cluster reported invalid state '%s'")
+            return ('terminating', "Failure: cluster reported invalid state '%s' when request was in state '%s'" % (cluster_state, request.state))
 
         if cluster_state == 'new':
             return ('validated', 'Waiting for factory to configure itself.')
@@ -152,6 +152,7 @@ class HandleRequests(VC3Task):
         # waits for action = run
 
         action = request.action
+        requested.action = None
 
         if not action:
             return ('configured', 'Waiting for run action.')
@@ -298,6 +299,10 @@ class HandleRequests(VC3Task):
         s  = vars + ' ' + reqs
 
         return s
+
+    def is_everything_cleaned_up(self, request):
+        ''' TO BE FILLED '''
+        return True
 
 
 class VC3InvalidRequest(Exception):
