@@ -35,6 +35,7 @@ sys.path.append(libpath)
 import pluginmanager as pm
 
 from vc3infoservice.infoclient import InfoClient
+from vc3client.client import VC3ClientAPI
 from vc3master.task import VC3TaskSet
 from credible.core import SSCA, SSHKeyManager
 
@@ -49,6 +50,8 @@ class VC3Master(object):
         self.certfile  = os.path.expanduser(config.get('netcomm','certfile'))
         self.keyfile   = os.path.expanduser(config.get('netcomm', 'keyfile'))
         self.chainfile = os.path.expanduser(config.get('netcomm','chainfile'))
+
+        self.client    = VC3ClientAPI(config)
         
         #self.dynpluginname = config.get('dynamic','plugin')
         #self.dynpluginsection = "plugin-%s" % self.dynpluginname.lower() 

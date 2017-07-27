@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
 import ConfigParser
+import StringIO
+from base64 import b64encode
+
 import os
 import json
 
 from vc3master.task import VC3Task
-from vc3infoservice.infoclient import InfoClient 
 
 import pluginmanager as pm
 
@@ -17,119 +19,92 @@ class HandleRequests(VC3Task):
 
     def __init__(self, parent, config, section):
         super(HandleRequests, self).__init__(parent, config, section)
+        self.client = parent.client
 
-        self.dynamic = pm.getplugin(parent=self, 
-                                    paths=['vc3', 'plugins', 'dynamic'], 
-                                    name='HandleRequests',
-                                    config=self.config, 
-                                    section='requests-plugin')
-
-        # current requests being tracked, key-ed by requestid
-        self.requestids     = {}
 
     def runtask(self):
         self.log.info("Running task %s" % self.section)
 
         self.log.debug("Polling master....")
-        doc = self.parent.parent.infoclient.getdocument('request')
-        if doc:
-            self.log.debug("Got Request doc. Processing...")
-            self.process_requests(doc)
-        else:
-            self.log.debug("No request doc.")
 
+        requests = self.client.listRequests()
 
-    def process_requests(self, doc):
-        try:
-            ds = json.loads(doc)
-        except Exception as e:
-            raise e
+        n = len(requests) if requests else 0
+        self.log.debug("Processing %d requests" % n)
 
-        try:
-            requests = ds['request']
-        except KeyError:
-            # no requests available
-            return
+        self.process_requests(requests)
 
-        for requestid in requests:
-            self.process_request(requests[requestid])
+    def process_requests(self, requests):
+        if requests:
+            for r in requests:
+                self.process_request(r)
 
     def process_request(self, request):
-        name           = request['name']
-        state          = request['state']
+        next_state  = None
+        reason      = None
 
-        next_state = None
-        reason     = None
+        self.log.debug("Processing request '%s'", request.name)
 
-        if   state == 'new': 
+        if   request.state == 'new': 
             # nexts: validated, terminated
             (next_state, reason) = self.state_new(request)
 
-        elif state == 'validated':
+        if request.state == 'validated':
             # nexts: validated, configured, terminating
             # waits for cluster_state = configured | running
             (next_state, reason) = self.state_validated(request)
 
-        elif state == 'configured':
+        if request.state == 'configured':
             # nexts: configured, pending, terminating
             # waits for action = run
             (next_state, reason) = self.state_configured(request)
 
-        elif state == 'pending':
+        if request.state == 'pending':
             # nexts: pending, growing, running, terminating
             # to growing until at least one element of the request is fulfilled
             (next_state, reason) = self.state_pending(request)
 
-        elif state == 'growing':
+        if request.state == 'growing':
             # nexts: growing, shrinking, running, terminating
             # to running until all elements of the request are fulfilled
             (next_state, reason) = self.state_growing(request)
 
-        elif state == 'running':
+        if request.state == 'running':
             # nexts: shrinking, running, terminating
             # waits for action = terminate
             (next_state, reason) = self.state_running(request)
 
-        elif state == 'shrinking':
+        if request.state == 'shrinking':
             # nexts: shrinking, terminating
             # to terminating 
             (next_state, reason) = self.state_shrinking(request)
 
-        elif state == 'terminating':
+        if request.state == 'terminating':
             # waits until everything has been cleanup
             (next_state, reason) = self.state_terminating(request)
 
-        elif state == 'terminated':
-            (next_state, reason) = (state, None)
-            pass
-
-        else:
-            raise Exception("request '%s' has invalid state '%s'", name, str(state))
-
-        return self.update_state(request, next_state, reason)
-
-    def update_state(self, request, next_state, reason):
-        if next_state is None:
-            raise Exception('Next state was not set! This should not have happened.')
+        if request.state == 'terminated':
+            (next_state, reason) = (request.state, None)
 
         if reason:
-            request['state_reason'] = reason
+            request.state_reason = reason
 
-        obj = { 'request' : { request['name'] : request } }
-        self.parent.parent.infoclient.storedocumentobject(obj, 'request')
+        if next_state is not request.state:
+            try:
+                self.log.debug("request '%s'  state '%s' -> %s'", request.name, request.state, next_state)
+                request.state = next_state
+                self.client.storeRequest(request)
+
+            except Exception, e:
+                self.log.warning("Storing the new request state failed.")
+                raise e
 
     def state_by_cluster(self, request, valid):
-        if 'cluster' not in request:
-            return ('terminating', 'Failure: could not find cluster definition.')
 
-        if 'state' not in request['cluster']:
-            return ('terminating', "Failure: once configured, state of cluster should be set explicitly.")
-
-        cluster_state = request['cluster']['state']
-        # or: cluster_state = self.figure_out_cluster_state(request['cluster'])
+        cluster_state = request.cluster_state
 
         if cluster_state not in valid:
-            return ('terminating', "Failure: cluster reported invalid state '%s'")
+            return ('terminating', "Failure: cluster reported invalid state '%s' when request was in state '%s'" % (cluster_state, request.state))
 
         if cluster_state == 'new':
             return ('validated', 'Waiting for factory to configure itself.')
@@ -159,20 +134,24 @@ class HandleRequests(VC3Task):
         '''
         Validates all new requests. 
         '''
-
         if self.request_is_valid(request):
-            return ('validated', None)
+            try:
+                if self.add_queues_conf(request) and self.add_auth_conf(request):
+                    return ('validated', None)
+            except VC3InvalidRequest, e:
+                raise e
+                return ('terminated', 'Invalid request: %s' % e.reason)
+
         return ('terminated', 'Failure: invalid request')
 
     def state_validated(self, request):
-        return self.state_by_cluster('new', 'configured')
+        return self.state_by_cluster(request, ['new', 'configured'])
 
     def state_configured(self, request):
         # nexts: configured, pending, terminating
         # waits for action = run
 
-        action = request.get('action', None)
-
+        action = request.action
         if not action:
             return ('configured', 'Waiting for run action.')
 
@@ -188,9 +167,10 @@ class HandleRequests(VC3Task):
         return self.state_by_cluster(request, ['configured', 'growing', 'running'])
 
     def state_growing(self, request):
-        action = request.get('action', None)
+        action = request.action
 
-        if action not in ['run', 'terminate']:
+        if action and (action not in ['run', 'terminate']):
+            raise(Exception(str(action)))
             return ('shrinking', "Failure: once started, action should be one of run|terminate")
 
         if action == 'terminate':
@@ -200,9 +180,9 @@ class HandleRequests(VC3Task):
         return self.state_by_cluster(request, ['growing', 'running'])
 
     def state_running(self, request):
-        action = request.get('action', None)
+        action = request.action
 
-        if action not in ['run', 'terminate']:
+        if action and action not in ['run', 'terminate']:
             return ('shrinking', "Failure: once started, action should be one of run|terminate")
 
         if action == 'terminate':
@@ -212,19 +192,19 @@ class HandleRequests(VC3Task):
         return self.state_by_cluster(request, ['running'])
 
     def state_shrinking(self, request):
-        action = request.get('action', None)
+        action = request.action
 
-        if action is not 'terminate':
-            # ignoring action
+        if action and action is not 'terminate':
+            # ignoring action... do something here?
             pass
 
         return self.state_by_cluster(request, ['shrinking', 'terminated'])
 
     def state_terminating(self, request):
-        action = request.get('action', None)
+        action = request.action
 
-        if action is not 'terminate':
-            # ignoring action
+        if action and action is not 'terminate':
+            # ignoring action... do something here?
             pass
 
         if self.is_everything_cleaned_up(request):
@@ -233,22 +213,102 @@ class HandleRequests(VC3Task):
         return self.state_by_cluster(request, ['shrinking', 'terminated'])
 
 
-    def figure_out_cluster_state(self, cluster):
-        # THIS ASSUMES ALL COMPONENTS OF THE CLUSTER HAVE THE SAME LIFETIME
-        states = []
-        for component_key in cluster:
-            component = cluster[component_key]
-            states.append(component.get('state', 'unknown'))
+    def add_queues_conf(self, request):
+        config = ConfigParser.RawConfigParser()
 
-        if 'failure' in states:
-            return 'failure'
+        for a in request.allocations:
+            self.generate_queues_section(config, request, a)
 
-        if all( [ 'running' == x for x in states ] ):
-            return 'running'
+        conf_as_string = StringIO.StringIO()
+        config.write(conf_as_string)
 
-        if any( [ 'running' == x for x in states ] ):
-            return 'growing'
+        request.queuesconf = b64encode(conf_as_string.getvalue())
+        return request.queuesconf
 
-        return None
+    def add_auth_conf(self, request):
+        config = ConfigParser.RawConfigParser()
 
+        for a in request.allocations:
+            self.generate_auth_section(config, request, a)
+
+        conf_as_string = StringIO.StringIO()
+        config.write(conf_as_string)
+
+        request.authconf = b64encode(conf_as_string.getvalue())
+        return request.authconf
+
+
+    def generate_queues_section(self, config, request, allocation_name):
+
+        name = request.name + '.' + allocation_name
+        config.add_section(name)
+
+        allocation = self.client.getAllocation(allocation_name)
+        if not allocation:
+            raise VC3InvalidRequest("Allocation '%s' has not been declared." % allocation_name, request = request)
+
+        resource = self.client.getResource(allocation.resource)
+        if not resource:
+            raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
+
+        if resource.accesstype == 'batch':
+            config.set(name, 'batchsubmitplugin',          'CondorSSH')
+            config.set(name, 'batchsubmit.condorssh.user', allocation.owner)
+            config.set(name, 'condorssh.batch',            resource.accessflavor)
+            config.set(name, 'condorssh.host',             resource.accesshost)
+            config.set(name, 'condorssh.port',             str(resource.accessport))
+            config.set(name, 'condorssh.authprofile',      allocation_name)
+            config.set(name, 'executable',                 'vc3-builder')
+            config.set(name, 'executable-args',            self.environment_args(request))
+        elif resource.accesstype == 'cloud':
+            config.set(name, 'batchsubmitplugin',          'CondorEC2')
+        else:
+            raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
+
+
+    def generate_auth_section(self, config, request, allocation_name):
+
+        name = request.name + '.' + allocation_name
+        config.add_section(name)
+
+        allocation = self.client.getAllocation(allocation_name)
+        if not allocation:
+            raise VC3InvalidRequest("Allocation '%s' has not been declared." % allocation_name, request = request)
+
+        resource = self.client.getResource(allocation.resource)
+        if not resource:
+            raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
+
+        if resource.accessmethod == 'ssh':
+            config.set(name, 'plugin',        'ssh')
+            config.set(name, 'ssh.type',      allocation.accountname)
+            config.set(name, 'ssh.publickey', allocation.pubtoken)
+            config.set(name, 'ssh.privtoken', allocation.privtoken)
+        elif resource.accesstype == 'gsissh':
+            raise NoImplementedError
+        else:
+            raise VC3InvalidRequest("Unknown resource access method '%s'" % str(resource.accessmethod), request = request)
+
+
+    def environment_args(self, request):
+        vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
+        vars  = ' '.join(['--var %s' % x for x in vs])
+        es    = request.environments
+        reqs  = ' '.join(['--require %s' % x for x in request.environments])
+        s  = vars + ' ' + reqs
+
+        return s
+
+    def is_everything_cleaned_up(self, request):
+        ''' TO BE FILLED '''
+        return True
+
+
+class VC3InvalidRequest(Exception):
+    def __init__(self, reason, request = None):
+        self.reason  = reason
+        self.request = request
+
+    def __str__(self):
+        return str(self.reason)
 
