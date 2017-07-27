@@ -1,10 +1,9 @@
 [Unit]
-Description=on and off VC3 master
+Description=VC3 Master
 
 [Service]
-Type=oneshot
-ExecStart=/usr/bin/vc3-master.init start
-ExecStop=/usr/bin/vc3-master.init stop
+ExecStart=/usr/bin/vc3-master -c /etc/vc3/master.conf
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
