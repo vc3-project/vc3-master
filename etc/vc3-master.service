@@ -2,9 +2,9 @@
 Description=VC3 Master
 
 [Service]
-ExecStart=/usr/bin/vc3-master -c /etc/vc3/master.conf
+User=vc3
+ExecStart=/usr/bin/vc3-master --conf /etc/vc3/vc3-master.conf
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
-
