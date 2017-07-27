@@ -145,15 +145,13 @@ class HandleRequests(VC3Task):
         return ('terminated', 'Failure: invalid request')
 
     def state_validated(self, request):
-        return self.state_by_cluster(request, ['validated', 'configured'])
+        return self.state_by_cluster(request, ['new', 'configured'])
 
     def state_configured(self, request):
         # nexts: configured, pending, terminating
         # waits for action = run
 
         action = request.action
-        requested.action = None
-
         if not action:
             return ('configured', 'Waiting for run action.')
 
@@ -171,7 +169,8 @@ class HandleRequests(VC3Task):
     def state_growing(self, request):
         action = request.action
 
-        if action not in ['run', 'terminate']:
+        if action and (action not in ['run', 'terminate']):
+            raise(Exception(str(action)))
             return ('shrinking', "Failure: once started, action should be one of run|terminate")
 
         if action == 'terminate':
@@ -183,7 +182,7 @@ class HandleRequests(VC3Task):
     def state_running(self, request):
         action = request.action
 
-        if action not in ['run', 'terminate']:
+        if action and action not in ['run', 'terminate']:
             return ('shrinking', "Failure: once started, action should be one of run|terminate")
 
         if action == 'terminate':
@@ -195,7 +194,7 @@ class HandleRequests(VC3Task):
     def state_shrinking(self, request):
         action = request.action
 
-        if action is not 'terminate':
+        if action and action is not 'terminate':
             # ignoring action... do something here?
             pass
 
@@ -204,7 +203,7 @@ class HandleRequests(VC3Task):
     def state_terminating(self, request):
         action = request.action
 
-        if action is not 'terminate':
+        if action and action is not 'terminate':
             # ignoring action... do something here?
             pass
 
