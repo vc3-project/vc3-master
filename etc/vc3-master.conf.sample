@@ -23,11 +23,6 @@ infohost=localhost
 httpport=20333
 httpsport=20334
 
-[builder]
-path        = ~/../../vc3-builder
-installdir  = ~/../../vc3-dev
-homedir     = vc3-dev-home
-environment = vc3-dev
 
 [core]
 whitelist = cctools-catalog-server,vc3-factory
