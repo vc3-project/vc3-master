@@ -3,7 +3,8 @@ Description=VC3 Master
 
 [Service]
 User=vc3
-ExecStart=/usr/bin/vc3-master --conf /etc/vc3/vc3-master.conf
+EnvironmentFile=-/etc/sysconfig/vc3-master
+ExecStart=/usr/bin/vc3-master --conf /etc/vc3/vc3-master.conf $OPTIONS
 Restart=on-failure
 
 [Install]
