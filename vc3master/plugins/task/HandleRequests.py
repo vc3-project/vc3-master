@@ -257,9 +257,9 @@ class HandleRequests(VC3Task):
             config.set(name, 'condorssh.batch',            resource.accessflavor)
             config.set(name, 'condorssh.host',             resource.accesshost)
             config.set(name, 'condorssh.port',             str(resource.accessport))
-            config.set(name, 'condorssh.authprofile',      allocation_name)
+            config.set(name, 'condorssh.authprofile',      name)
             config.set(name, 'executable',                 'vc3-builder')
-            config.set(name, 'executable-args',            self.environment_args(request))
+            config.set(name, 'executable.args',            self.environment_args(request))
         elif resource.accesstype == 'cloud':
             config.set(name, 'batchsubmitplugin',          'CondorEC2')
         else:
