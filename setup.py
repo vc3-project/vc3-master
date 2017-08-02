@@ -15,10 +15,8 @@ def choose_data_file_locations():
         return home_data_files
 
 rpm_install = 'bdist_rpm' in sys.argv
-if rpm_install:
-    from setuptools import setup
-else:
-    from distutils.core import setup
+
+from distutils.core import setup
 
 # commenting, as it creates dependency on vc3 prefix:
 release_version='0.0.1'
