@@ -6,15 +6,17 @@
 import sys
 import re
 from setuptools import setup
+import time
+
 
 def choose_data_file_locations():
     local_install = False
 
     if '--user' in sys.argv:
         local_install = True
-    elif any( [ re.match('--home(=|\s)', arg) for arg in sys.argv] ):
+    elif any([re.match('--home(=|\s)', arg) for arg in sys.argv]):
         local_install = True
-    elif any( [ re.match('--prefix(=|\s)', arg) for arg in sys.argv] ):
+    elif any([re.match('--prefix(=|\s)', arg) for arg in sys.argv]):
         local_install = True
 
     if local_install:
@@ -23,7 +25,9 @@ def choose_data_file_locations():
         return rpm_data_files
 
 # commenting, as it creates dependency on vc3 prefix:
-release_version='0.0.1'
+current_time = time.gmtime()
+release_version = "{0}.{1:0>2}.{2:0>2}".format(current_time.tm_year, current_time.tm_mon, current_time.tm_day)
+
 
 systemd_files = ['etc/vc3-master.service']
 
