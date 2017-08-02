@@ -3,20 +3,24 @@
 # Setup prog for vc3-master
 #
 #
-
-
 import sys
 import re
+from setuptools import setup
 
 def choose_data_file_locations():
-    if rpm_install:
-        return rpm_data_files
-    else:
+    local_install = False
+
+    if '--user' in sys.argv:
+        local_install = True
+    elif any( [ re.match('--home(=|\s)', arg) for arg in sys.argv] ):
+        local_install = True
+    elif any( [ re.match('--prefix(=|\s)', arg) for arg in sys.argv] ):
+        local_install = True
+
+    if local_install:
         return home_data_files
-
-rpm_install = 'bdist_rpm' in sys.argv
-
-from distutils.core import setup
+    else:
+        return rpm_data_files
 
 # commenting, as it creates dependency on vc3 prefix:
 release_version='0.0.1'
@@ -44,6 +48,7 @@ home_data_files=[('etc', etc_files),
                  ('etc', initd_files),
                  ('etc', sysconfig_files)]
 
+data_files = choose_data_file_locations()
 
 # ===========================================================
 
@@ -64,5 +69,5 @@ setup(
               'vc3master.plugins.task'
              ],
     scripts=['scripts/vc3-master'],
-    data_files=choose_data_file_locations()
+    data_files=data_files
 )
