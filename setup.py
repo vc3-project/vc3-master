@@ -72,6 +72,7 @@ setup(
               'vc3master.plugins',
               'vc3master.plugins.task'
              ],
-    scripts=['scripts/vc3-master'],
+    scripts=['scripts/vc3-master',
+             'scripts/vc3-master.init'],
     data_files=data_files
 )
