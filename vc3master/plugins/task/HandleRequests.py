@@ -84,6 +84,7 @@ class HandleRequests(VC3Task):
             (next_state, reason) = self.state_terminating(request)
 
         if request.state == 'terminated':
+            self.log.debug('request %s is done' % request.name)
             (next_state, reason) = (request.state, None)
 
         if reason:
@@ -134,6 +135,8 @@ class HandleRequests(VC3Task):
         '''
         Validates all new requests. 
         '''
+        self.log.debug('processing new request %s' % request.name)
+
         if self.request_is_valid(request):
             try:
                 if self.add_queues_conf(request) and self.add_auth_conf(request):
@@ -145,11 +148,17 @@ class HandleRequests(VC3Task):
         return ('terminated', 'Failure: invalid request')
 
     def state_validated(self, request):
+        self.log.debug('validating request %s' % request.name)
+
+        # validate request here
+
         return self.state_by_cluster(request, ['new', 'configured'])
 
     def state_configured(self, request):
         # nexts: configured, pending, terminating
         # waits for action = run
+
+        self.log.debug('waiting for run action for request %s' % request.name)
 
         action = request.action
         if not action:
@@ -164,11 +173,13 @@ class HandleRequests(VC3Task):
         return ('terminating', "Failure: invalid '%s' action" % str(action))
 
     def state_pending(self, request):
+        self.log.debug('waiting for factory to start fullfilling request %s' % request.name)
         return self.state_by_cluster(request, ['configured', 'growing', 'running'])
 
     def state_growing(self, request):
-        action = request.action
+        self.log.debug('waiting for factory to fullfill request %s' % request.name)
 
+        action = request.action
         if action and (action not in ['run', 'terminate']):
             raise(Exception(str(action)))
             return ('shrinking', "Failure: once started, action should be one of run|terminate")
@@ -180,8 +191,9 @@ class HandleRequests(VC3Task):
         return self.state_by_cluster(request, ['growing', 'running'])
 
     def state_running(self, request):
-        action = request.action
+        self.log.debug('request %s is running' % request.name)
 
+        action = request.action
         if action and action not in ['run', 'terminate']:
             return ('shrinking', "Failure: once started, action should be one of run|terminate")
 
@@ -192,8 +204,9 @@ class HandleRequests(VC3Task):
         return self.state_by_cluster(request, ['running'])
 
     def state_shrinking(self, request):
-        action = request.action
+        self.log.debug('request %s is shrinking' % request.name)
 
+        action = request.action
         if action and action is not 'terminate':
             # ignoring action... do something here?
             pass
@@ -201,8 +214,9 @@ class HandleRequests(VC3Task):
         return self.state_by_cluster(request, ['shrinking', 'terminated'])
 
     def state_terminating(self, request):
-        action = request.action
+        self.log.debug('request %s is terminating' % request.name)
 
+        action = request.action
         if action and action is not 'terminate':
             # ignoring action... do something here?
             pass
