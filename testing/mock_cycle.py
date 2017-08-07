@@ -39,12 +39,15 @@ if __name__ == '__main__':
     allocation_1 = client.defineAllocation(name = 'ALLOCATION_1', owner = 'Waldo', resource = 'RESOURCE_1', accountname = 'vc3-waldo')
     allocation_2 = client.defineAllocation(name = 'ALLOCATION_2', owner = 'Waldo', resource = 'RESOURCE_2', accountname = 'vc3-waldo')
 
-    r = client.defineRequest(name = 'REQUEST_1', owner = 'Waldo', cluster = 'CLUSTER_1', allocations = ['ALLOCATION_1', 'ALLOCATION_2'], environments = ['cvmfs'], policy = None, expiration = None)
+    environment_1 = client.defineEnvironment(name = 'ENVIRONMENT_1', owner = 'Waldo', packagelist = ['cctools'])
+
+    r = client.defineRequest(name = 'REQUEST_1', owner = 'Waldo', cluster = 'CLUSTER_1', allocations = ['ALLOCATION_1', 'ALLOCATION_2'], environments = ['ENVIRONMENT_1'], policy = None, expiration = None)
 
     client.storeAllocation(allocation_1)
     client.storeAllocation(allocation_2)
     client.storeResource(resource_1)
     client.storeResource(resource_2)
+    client.storeEnvironment(environment_1)
     client.storeRequest(r)
 
     while True:
