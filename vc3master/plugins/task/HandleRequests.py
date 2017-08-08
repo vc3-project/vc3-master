@@ -295,9 +295,9 @@ class HandleRequests(VC3Task):
 
         if resource.accessmethod == 'ssh':
             config.set(name, 'plugin',        'SSH')
-            config.set(name, 'ssh.type',      allocation.accountname)
+            config.set(name, 'ssh.type',      allocation.sectype)
             config.set(name, 'ssh.publickey', allocation.pubtoken)
-            config.set(name, 'ssh.privtoken', allocation.privtoken)
+            config.set(name, 'ssh.privatekey', allocation.privtoken)
         elif resource.accesstype == 'gsissh':
             raise NoImplementedError
         else:
