@@ -307,14 +307,20 @@ class HandleRequests(VC3Task):
     def environment_args(self, request):
 
         environments = []
+        self.log.debug("Retrieving environments: %s" % request.environments)
         for ename in request.environments:
-            environments.append(self.client.getEnvironment(ename))
+            eo = self.client.getEnvironment(ename)
+            if eo is not None:
+                environments.append()
+            else:
+                self.log.debug("Failed to retrieve environment %s" % ename)
 
         packages = []
         for e in environments:
             packages.extend(e.packagelist)
 
-        #if len(packages) < 1:
+        if len(packages) < 1:
+            self.log.warning("No environment defined a package list for Request")
         #    raise VC3InvalidRequest('No environment defined a package list for request', request = request)
 
         vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
