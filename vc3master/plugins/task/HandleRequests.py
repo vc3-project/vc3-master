@@ -305,10 +305,23 @@ class HandleRequests(VC3Task):
 
 
     def environment_args(self, request):
+
+        environments = []
+        for ename in request.environments:
+            environments.append(self.client.getEnvironment(ename))
+
+        packages = []
+        for e in environments:
+            packages.extend(e.packagelist)
+
+        if len(packages) < 1:
+            raise VC3InvalidRequest('No environment defined a package list for request', request = request)
+
+        reqs  = ' '.join(['--require %s' % x for x in packages])
+
         vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
         vars  = ' '.join(['--var %s' % x for x in vs])
-        es    = request.environments
-        reqs  = ' '.join(['--require %s' % x for x in request.environments])
+
         s  = vars + ' ' + reqs
 
         return s

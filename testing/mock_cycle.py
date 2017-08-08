@@ -40,8 +40,9 @@ if __name__ == '__main__':
     allocation_2 = client.defineAllocation(name = 'ALLOCATION_2', owner = 'Waldo', resource = 'RESOURCE_2', accountname = 'vc3-waldo')
 
     environment_1 = client.defineEnvironment(name = 'ENVIRONMENT_1', owner = 'Waldo', packagelist = ['cctools'])
+    environment_1 = client.defineEnvironment(name = 'ENVIRONMENT_2', owner = 'Waldo', packagelist = ['curl', 'uuid'])
 
-    r = client.defineRequest(name = 'REQUEST_1', owner = 'Waldo', cluster = 'CLUSTER_1', allocations = ['ALLOCATION_1', 'ALLOCATION_2'], environments = ['ENVIRONMENT_1'], policy = None, expiration = None)
+    r = client.defineRequest(name = 'REQUEST_1', owner = 'Waldo', cluster = 'CLUSTER_1', allocations = ['ALLOCATION_1', 'ALLOCATION_2'], environments = ['ENVIRONMENT_1', 'ENVIRONMENT_2'], policy = None, expiration = None)
 
     client.storeAllocation(allocation_1)
     client.storeAllocation(allocation_2)
