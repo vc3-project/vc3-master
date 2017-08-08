@@ -267,7 +267,7 @@ class HandleRequests(VC3Task):
 
         if resource.accesstype == 'batch':
             config.set(name, 'batchsubmitplugin',          'CondorSSH')
-            config.set(name, 'batchsubmit.condorssh.user', allocation.owner)
+            config.set(name, 'batchsubmit.condorssh.user', allocation.accountname)
             config.set(name, 'condorssh.batch',            resource.accessflavor)
             config.set(name, 'condorssh.host',             resource.accesshost)
             config.set(name, 'condorssh.port',             str(resource.accessport))
