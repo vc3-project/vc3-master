@@ -314,8 +314,8 @@ class HandleRequests(VC3Task):
         for e in environments:
             packages.extend(e.packagelist)
 
-        if len(packages) < 1:
-            raise VC3InvalidRequest('No environment defined a package list for request', request = request)
+        #if len(packages) < 1:
+        #    raise VC3InvalidRequest('No environment defined a package list for request', request = request)
 
         vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
 
