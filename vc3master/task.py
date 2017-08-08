@@ -5,6 +5,7 @@
 import logging
 import threading
 import datetime
+import traceback
 import time
 
 import pluginmanager as pm
@@ -53,8 +54,11 @@ class VC3TaskSet(threading.Thread):
         while not self.stopevent.isSet():
             #self.log.debug("Checking interval...")
             if datetime.datetime.now() - lastrun > tdinterval:
-                for p in self.tasks:            
-                    p.runtask()
+                for p in self.tasks:
+                    try:            
+                        p.runtask()
+                    except Exception, e:
+                        self.log.warning("Exception during runtask(): %s " % traceback.format_exc(None))
                 lastrun = datetime.datetime.now()
                 self.log.debug("Waiting for %s seconds..." % self.polling_interval)    
             time.sleep(self.thread_loop_interval)
