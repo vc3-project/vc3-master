@@ -317,9 +317,13 @@ class HandleRequests(VC3Task):
         if len(packages) < 1:
             raise VC3InvalidRequest('No environment defined a package list for request', request = request)
 
-        reqs  = ' '.join(['--require %s' % x for x in packages])
-
         vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
+
+        for e in environments:
+            for k in e.envmap:
+                vs.append("%s=%s" % (k, e.envmap[k]))
+
+        reqs  = ' '.join(['--require %s' % x for x in packages])
         vars  = ' '.join(['--var %s' % x for x in vs])
 
         s  = vars + ' ' + reqs
