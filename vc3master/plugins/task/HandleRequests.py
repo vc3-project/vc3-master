@@ -311,7 +311,7 @@ class HandleRequests(VC3Task):
         for ename in request.environments:
             eo = self.client.getEnvironment(ename)
             if eo is not None:
-                environments.append()
+                environments.append(eo)
             else:
                 self.log.debug("Failed to retrieve environment %s" % ename)
 
