@@ -321,7 +321,6 @@ class HandleRequests(VC3Task):
 
         if len(packages) < 1:
             self.log.warning("No environment defined a package list for Request")
-        #    raise VC3InvalidRequest('No environment defined a package list for request', request = request)
 
         vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
 
