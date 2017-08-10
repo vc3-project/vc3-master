@@ -280,14 +280,15 @@ class HandleRequests(VC3Task):
 
     def generate_auth_tokens(self, principle):
         """ 
-        Generate SSH priv/pub keys and append them to the request
+        Generate SSH priv/pub keys and base64 encode them
         """ 
         self.log.info("Generating or retrieving SSH keys for %s", principle)
         self.ssh = self.parent.parent.ssh
         (pub, priv) = self.ssh.getkeys(principle)
-        self.log.debug("private key: %s", priv)
         self.log.debug("public key: %s", pub)
-        return priv, pub
+        encoded_pub = b64encode(pub)
+        encoded_priv = b64encode(priv)
+        return encoded_pub, encoded_priv
          
 
     def generate_auth_section(self, config, request, allocation_name):
@@ -304,7 +305,7 @@ class HandleRequests(VC3Task):
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
         # credible always generates rsa keys
         allocation.sectype = 'rsa'
-        (allocation.privtoken, allocation.pubtoken) = self.generate_auth_tokens(name)
+        (allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)
 
         self.log.debug("allocation sectype: %s", allocation.sectype)
         self.log.debug("allocation privtoken: %s", allocation.privtoken)
