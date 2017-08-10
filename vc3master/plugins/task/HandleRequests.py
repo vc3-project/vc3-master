@@ -306,6 +306,10 @@ class HandleRequests(VC3Task):
         allocation.sectype = 'rsa'
         (allocation.privtoken, allocation.pubtoken) = self.generate_auth_tokens(name)
 
+        self.log.debug("allocation sectype: %s", allocation.sectype)
+        self.log.debug("allocation privtoken: %s", allocation.privtoken)
+        self.log.debug("allocation pubtoken: %s", allocation.pubtoken)
+
         if resource.accessmethod == 'ssh':
             config.set(name, 'plugin',        'SSH')
             config.set(name, 'ssh.type',      allocation.sectype)
