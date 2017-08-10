@@ -306,7 +306,7 @@ class HandleRequests(VC3Task):
 
         if resource.accessmethod == 'ssh':
             # credible always generates rsa keys
-            allocation.sectype = 'rsa'
+            allocation.sectype = 'ssh-rsa'
             (allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)
 
             config.set(name, 'plugin',        'SSH')
