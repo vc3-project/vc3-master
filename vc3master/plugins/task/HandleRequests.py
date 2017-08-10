@@ -303,15 +303,12 @@ class HandleRequests(VC3Task):
         resource = self.client.getResource(allocation.resource)
         if not resource:
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
-        # credible always generates rsa keys
-        allocation.sectype = 'rsa'
-        (allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)
-
-        self.log.debug("allocation sectype: %s", allocation.sectype)
-        self.log.debug("allocation privtoken: %s", allocation.privtoken)
-        self.log.debug("allocation pubtoken: %s", allocation.pubtoken)
 
         if resource.accessmethod == 'ssh':
+            # credible always generates rsa keys
+            allocation.sectype = 'rsa'
+            (allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)
+
             config.set(name, 'plugin',        'SSH')
             config.set(name, 'ssh.type',      allocation.sectype)
             config.set(name, 'ssh.publickey', allocation.pubtoken)
