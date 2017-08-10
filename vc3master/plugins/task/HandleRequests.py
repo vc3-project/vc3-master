@@ -283,8 +283,8 @@ class HandleRequests(VC3Task):
         Generate SSH priv/pub keys and append them to the request
         """ 
         self.log.info("Generating or retrieving SSH keys for %s", principle)
-        self.sska = self.parent.parent.sska
-        (pub, priv) = self.sska.getkeys(principle)
+        self.ssh = self.parent.parent.ssh
+        (pub, priv) = self.ssh.getkeys(principle)
         self.log.debug("private key: %s", priv)
         self.log.debug("public key: %s", pub)
         return priv, pub
@@ -302,7 +302,8 @@ class HandleRequests(VC3Task):
         resource = self.client.getResource(allocation.resource)
         if not resource:
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
-
+        # credible always generates rsa keys
+        allocation.sectype = 'rsa'
         (allocation.privtoken, allocation.pubtoken) = self.generate_auth_tokens(name)
 
         if resource.accessmethod == 'ssh':
