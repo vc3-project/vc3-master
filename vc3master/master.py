@@ -71,7 +71,7 @@ class VC3Master(object):
         self.credconfig.read(os.path.expanduser(self.config.get('credible','credconf')))
         
         self.ssca = SSCA( self.credconfig ) 
-        self.sska = SSHKeyManager(self.credconfig) 
+        self.ssh = SSHKeyManager(self.credconfig) 
 
         self.infoclient = InfoClient(config)
        
