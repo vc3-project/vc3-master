@@ -251,7 +251,6 @@ class HandleRequests(VC3Task):
         request.authconf = b64encode(conf_as_string.getvalue())
         return request.authconf
 
-
     def generate_queues_section(self, config, request, allocation_name):
 
         name = request.name + '.' + allocation_name
@@ -279,6 +278,16 @@ class HandleRequests(VC3Task):
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
 
+    def generate_auth_tokens(self, principle):
+        """ 
+        Generate SSH priv/pub keys and append them to the request
+        """ 
+        self.log.info("Generating or retrieving SSH keys for %s", principle)
+        self.sska = self.parent.parent.sska
+        (pub, priv) = self.sska.getkeys(principle)
+        self.log.debug("private key: %s", priv)
+        self.log.debug("public key: %s", pub)
+         
 
     def generate_auth_section(self, config, request, allocation_name):
 
@@ -292,6 +301,8 @@ class HandleRequests(VC3Task):
         resource = self.client.getResource(allocation.resource)
         if not resource:
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
+
+        generate_auth_tokens(name)
 
         if resource.accessmethod == 'ssh':
             config.set(name, 'plugin',        'SSH')
