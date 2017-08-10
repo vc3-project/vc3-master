@@ -287,6 +287,7 @@ class HandleRequests(VC3Task):
         (pub, priv) = self.sska.getkeys(principle)
         self.log.debug("private key: %s", priv)
         self.log.debug("public key: %s", pub)
+        return priv, pub
          
 
     def generate_auth_section(self, config, request, allocation_name):
@@ -302,7 +303,7 @@ class HandleRequests(VC3Task):
         if not resource:
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
 
-        generate_auth_tokens(name)
+        (allocation.privtoken, allocation.pubtoken) = generate_auth_tokens(name)
 
         if resource.accessmethod == 'ssh':
             config.set(name, 'plugin',        'SSH')
