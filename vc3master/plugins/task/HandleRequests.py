@@ -303,7 +303,7 @@ class HandleRequests(VC3Task):
         if not resource:
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
 
-        (allocation.privtoken, allocation.pubtoken) = generate_auth_tokens(name)
+        (allocation.privtoken, allocation.pubtoken) = self.generate_auth_tokens(name)
 
         if resource.accessmethod == 'ssh':
             config.set(name, 'plugin',        'SSH')
