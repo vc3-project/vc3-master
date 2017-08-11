@@ -267,11 +267,15 @@ class HandleRequests(VC3Task):
         cluster = self.client.getCluster(request.cluster)
         if not cluster:
             raise VC3InvalidRequest("Cluster '%s' has not been declared." % cluster.name, request = request)
+        
         # For now we will assume that there is only one nodeset per cluster (and request)        
         if len(cluster.nodesets) < 1:
             raise VC3InvalidRequest("No nodesets have been added to Cluster '%s' " % cluster.name, request = request)
+        
         nodeset_name = cluster.nodesets[0]
+        self.log.debug("nodeset_name is %s for cluster %s " % ( nodeset_name, cluster.name))
         nodeset = self.client.getNodeset(nodeset_name)
+        self.log.debug("Retrieved %s for name %s" % ( nodeset, nodeset_name))
         if not nodeset:
             raise VC3InvalidRequest("Nodeset '%s' has not been declared." % nodeset_name, request = request)
         resource = self.client.getResource(allocation.resource)
@@ -281,9 +285,9 @@ class HandleRequests(VC3Task):
         
         # For now no policies. Just calculated static-balanced 
         numalloc = len(request.allocations)
-        total_to_run = nodeset.node_number
+        total_to_run = int(nodeset.node_number)
         node_number = total_to_run / numalloc
-        self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numallc,
+        self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numalloc,
                                                                                                          total_to_run,
                                                                                                          node_number))
 
