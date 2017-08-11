@@ -251,7 +251,6 @@ class HandleRequests(VC3Task):
         request.authconf = b64encode(conf_as_string.getvalue())
         return request.authconf
 
-
     def generate_queues_section(self, config, request, allocation_name):
 
         name = request.name + '.' + allocation_name
@@ -279,6 +278,18 @@ class HandleRequests(VC3Task):
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
 
+    def generate_auth_tokens(self, principle):
+        """ 
+        Generate SSH priv/pub keys and base64 encode them
+        """ 
+        self.log.info("Generating or retrieving SSH keys for %s", principle)
+        self.ssh = self.parent.parent.ssh
+        (pub, priv) = self.ssh.getkeys(principle)
+        self.log.debug("public key: %s", pub)
+        encoded_pub = b64encode(pub)
+        encoded_priv = b64encode(priv)
+        return encoded_pub, encoded_priv
+         
 
     def generate_auth_section(self, config, request, allocation_name):
 
@@ -294,6 +305,10 @@ class HandleRequests(VC3Task):
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
 
         if resource.accessmethod == 'ssh':
+            # credible always generates rsa keys
+            allocation.sectype = 'ssh-rsa'
+            (allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)
+
             config.set(name, 'plugin',        'SSH')
             config.set(name, 'ssh.type',  allocation.sectype)
             config.set(name, 'ssh.publickey', allocation.pubtoken)
@@ -311,7 +326,7 @@ class HandleRequests(VC3Task):
         for ename in request.environments:
             eo = self.client.getEnvironment(ename)
             if eo is not None:
-                environments.append()
+                environments.append(eo)
             else:
                 self.log.debug("Failed to retrieve environment %s" % ename)
 
@@ -321,7 +336,6 @@ class HandleRequests(VC3Task):
 
         if len(packages) < 1:
             self.log.warning("No environment defined a package list for Request")
-        #    raise VC3InvalidRequest('No environment defined a package list for request', request = request)
 
         vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
 
