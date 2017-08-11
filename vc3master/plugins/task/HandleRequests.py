@@ -252,17 +252,44 @@ class HandleRequests(VC3Task):
         return request.authconf
 
     def generate_queues_section(self, config, request, allocation_name):
-
+        '''
+            request.allocations = [ alloc1, alloc2 ]
+                   .cluster.nodesets = [ nodeset, nodeset ]                                       
+             nodeset.node_number   # total number to launch. 
+        '''
         name = request.name + '.' + allocation_name
-        config.add_section(name)
+        self.log.debug("Gathering objects for config section %s ..." % name)
 
         allocation = self.client.getAllocation(allocation_name)
         if not allocation:
             raise VC3InvalidRequest("Allocation '%s' has not been declared." % allocation_name, request = request)
-
+        
+        cluster = self.client.getCluster(request.cluster)
+        if not cluster:
+            raise VC3InvalidRequest("Cluster '%s' has not been declared." % cluster.name, request = request)
+        # For now we will assume that there is only one nodeset per cluster (and request)        
+        if len(cluster.nodesets) < 1:
+            raise VC3InvalidRequest("No nodesets have been added to Cluster '%s' " % cluster.name, request = request)
+        nodeset_name = cluster.nodesets[0]
+        nodeset = self.client.getNodeset(nodeset_name)
+        if not nodeset:
+            raise VC3InvalidRequest("Nodeset '%s' has not been declared." % nodeset_name, request = request)
         resource = self.client.getResource(allocation.resource)
         if not resource:
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
+        self.log.debug("Valid objects gathered for queues configuration. Calculating nodes to run...")
+        
+        # For now no policies. Just calculated static-balanced 
+        numalloc = len(request.allocations)
+        total_to_run = nodeset.node_number
+        node_number = total_to_run / numalloc
+        self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numallc,
+                                                                                                         total_to_run,
+                                                                                                         node_number))
+
+        self.log.debug("Information finalized for queues configuration. Creating config...")
+        config.add_section(name)
+        config.set(name, 'sched.keepnrunning.keep_running', node_number)
 
         if resource.accesstype == 'batch':
             config.set(name, 'batchsubmitplugin',          'CondorSSH')
@@ -271,12 +298,17 @@ class HandleRequests(VC3Task):
             config.set(name, 'batchsubmit.condorssh.host',             resource.accesshost)
             config.set(name, 'batchsubmit.condorssh.port',             str(resource.accessport))
             config.set(name, 'batchsubmit.condorssh.authprofile',      name)
-            config.set(name, 'executable',                 'vc3-builder')
+            config.set(name, 'executable',                 '/usr/bin/vc3-builder')
             config.set(name, 'executable.args',            self.environment_args(request))
+        
         elif resource.accesstype == 'cloud':
             config.set(name, 'batchsubmitplugin',          'CondorEC2')
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
+
+        self.log.debug("Completed filling in config for allocation %s" % allocation_name)
+
+
 
     def generate_auth_tokens(self, principle):
         """ 
