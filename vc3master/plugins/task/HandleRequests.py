@@ -268,10 +268,10 @@ class HandleRequests(VC3Task):
         if resource.accesstype == 'batch':
             config.set(name, 'batchsubmitplugin',          'CondorSSH')
             config.set(name, 'batchsubmit.condorssh.user', allocation.accountname)
-            config.set(name, 'condorssh.batch',            resource.accessflavor)
-            config.set(name, 'condorssh.host',             resource.accesshost)
-            config.set(name, 'condorssh.port',             str(resource.accessport))
-            config.set(name, 'condorssh.authprofile',      name)
+            config.set(name, 'batchsubmit.condorssh.batch',            resource.accessflavor)
+            config.set(name, 'batchsubmit.condorssh.host',             resource.accesshost)
+            config.set(name, 'batchsubmit.condorssh.port',             str(resource.accessport))
+            config.set(name, 'batchsubmit.condorssh.authprofile',      name)
             config.set(name, 'executable',                 'vc3-builder')
             config.set(name, 'executable.args',            self.environment_args(request))
         elif resource.accesstype == 'cloud':
@@ -295,7 +295,7 @@ class HandleRequests(VC3Task):
 
         if resource.accessmethod == 'ssh':
             config.set(name, 'plugin',        'SSH')
-            config.set(name, 'ssh.type',      allocation.sectype)
+            config.set(name, 'ssh.type',  allocation.sectype)
             config.set(name, 'ssh.publickey', allocation.pubtoken)
             config.set(name, 'ssh.privatekey', allocation.privtoken)
         elif resource.accesstype == 'gsissh':
