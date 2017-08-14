@@ -302,7 +302,7 @@ class HandleRequests(VC3Task):
             config.set(name, 'batchsubmit.condorssh.host',             resource.accesshost)
             config.set(name, 'batchsubmit.condorssh.port',             str(resource.accessport))
             config.set(name, 'batchsubmit.condorssh.authprofile',      name)
-            config.set(name, 'executable',                 '/usr/bin/vc3-builder')
+            config.set(name, 'executable',                 '/usr/libexec/vc3-builder')
             config.set(name, 'executable.args',            self.environment_args(request))
         
         elif resource.accesstype == 'cloud':
