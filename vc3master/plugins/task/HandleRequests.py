@@ -20,21 +20,15 @@ class HandleRequests(VC3Task):
     def __init__(self, parent, config, section):
         super(HandleRequests, self).__init__(parent, config, section)
         self.client = parent.client
-
+        self.log.debug("HandleRequests VC3Task initialized.")
 
     def runtask(self):
         self.log.info("Running task %s" % self.section)
-
         self.log.debug("Polling master....")
-
         requests = self.client.listRequests()
-
         n = len(requests) if requests else 0
         self.log.debug("Processing %d requests" % n)
-
         self.process_requests(requests)
-
-    def process_requests(self, requests):
         if requests:
             for r in requests:
                 self.process_request(r)
@@ -45,7 +39,7 @@ class HandleRequests(VC3Task):
 
         self.log.debug("Processing request '%s'", request.name)
 
-        if   request.state == 'new': 
+        if  request.state == 'new': 
             # nexts: validated, terminated
             (next_state, reason) = self.state_new(request)
 
