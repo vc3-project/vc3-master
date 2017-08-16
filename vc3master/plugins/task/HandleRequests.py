@@ -28,7 +28,6 @@ class HandleRequests(VC3Task):
         requests = self.client.listRequests()
         n = len(requests) if requests else 0
         self.log.debug("Processing %d requests" % n)
-        self.process_requests(requests)
         if requests:
             for r in requests:
                 self.process_request(r)
