@@ -251,10 +251,9 @@ class HandleRequests(VC3Task):
     def generate_queues_section(self, config, request, allocation_name):
         '''
             request.allocations = [ alloc1, alloc2 ]
-                   .cluster.nodesets = [ nodeset, nodeset ]                                       
+                   .cluster.nodesets = [ nodeset1, nodeset2 ]                                       
              nodeset.node_number   # total number to launch. 
         '''
-        name = request.name + '.' + allocation_name
         self.log.debug("Gathering objects for config section %s ..." % name)
 
         allocation = self.client.getAllocation(allocation_name)
@@ -295,6 +294,7 @@ class HandleRequests(VC3Task):
                 self.log.debug("Action is terminate. Setting keepnrunning to 0")
                 
         self.log.debug("Information finalized for queues configuration. Creating config...")
+        name = request.name + '.' + nodeset_name + '.' + allocation_name
         config.add_section(name)
         config.set(name, 'sched.keepnrunning.keep_running', node_number)
 
