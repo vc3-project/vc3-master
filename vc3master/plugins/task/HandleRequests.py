@@ -338,15 +338,21 @@ class HandleRequests(VC3Task):
         if not allocation:
             raise VC3InvalidRequest("Allocation '%s' has not been declared." % allocation_name, request = request)
 
+        if allocation.pubtoken is None:
+            raise VC3InvalidRequest("Allocation '%s' doesn't have pub token." % allocation_name, request = request)
+
+        if allocation.privtoken is None:
+            raise VC3InvalidRequest("Allocation '%s' doesn't have pub token." % allocation_name, request = request)
+
         resource = self.client.getResource(allocation.resource)
         if not resource:
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
 
         if resource.accessmethod == 'ssh':
             # credible always generates rsa keys
-            allocation.sectype = 'ssh-rsa'
-            (allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)
-
+            #allocation.sectype = 'ssh-rsa'
+            #(allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)
+            
             config.set(name, 'plugin',        'SSH')
             config.set(name, 'ssh.type',  allocation.sectype)
             config.set(name, 'ssh.publickey', allocation.pubtoken)
