@@ -11,15 +11,15 @@ from vc3master.task import VC3Task
 
 import pluginmanager as pm
 
-class HandleRequests(VC3Task):
+class HandleAllocations(VC3Task):
     '''
-    Plugin to manage the life cycle of all requests.
+    Plugin to manage the life cycle of all Allocations.
      
     '''
     def __init__(self, parent, config, section):
-        super(HandleRequests, self).__init__(parent, config, section)
+        super(HandleAllocations, self).__init__(parent, config, section)
         self.client = parent.client
-        self.log.debug("HandleRequests VC3Task initialized.")
+        self.log.debug("HandleAllocations VC3Task initialized.")
 
     def runtask(self):
         self.log.info("Running task %s" % self.section)
@@ -38,4 +38,17 @@ class HandleRequests(VC3Task):
         self.log.debug("Processing allocation '%s'", allocation.name)
     
     
+    
+    
+    def generate_auth_tokens(self, principle):
+        """ 
+        Generate SSH priv/pub keys and base64 encode them
+        """ 
+        self.log.info("Generating or retrieving SSH keys for %s", principle)
+        self.ssh = self.parent.parent.ssh
+        (pub, priv) = self.ssh.getkeys(principle)
+        self.log.debug("public key: %s", pub)
+        encoded_pub = b64encode(pub)
+        encoded_priv = b64encode(priv)
+        return encoded_pub, encoded_priv
     

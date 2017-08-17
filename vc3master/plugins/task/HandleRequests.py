@@ -135,7 +135,8 @@ class HandleRequests(VC3Task):
                 if self.add_queues_conf(request) and self.add_auth_conf(request):
                     return ('validated', None)
             except VC3InvalidRequest, e:
-                raise e
+                #raise e
+                self.log.warning("Invalid Request: %s" % str(e))
                 return ('terminated', 'Invalid request: %s' % e.reason)
 
         return ('terminated', 'Failure: invalid request')
