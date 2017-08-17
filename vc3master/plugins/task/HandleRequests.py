@@ -254,8 +254,6 @@ class HandleRequests(VC3Task):
                    .cluster.nodesets = [ nodeset1, nodeset2 ]                                       
              nodeset.node_number   # total number to launch. 
         '''
-        self.log.debug("Gathering objects for config section %s ..." % name)
-
         allocation = self.client.getAllocation(allocation_name)
         if not allocation:
             raise VC3InvalidRequest("Allocation '%s' has not been declared." % allocation_name, request = request)
@@ -293,8 +291,9 @@ class HandleRequests(VC3Task):
                 node_number = 0
                 self.log.debug("Action is terminate. Setting keepnrunning to 0")
                 
-        self.log.debug("Information finalized for queues configuration. Creating config...")
+        
         name = request.name + '.' + nodeset_name + '.' + allocation_name
+        self.log.debug("Information finalized for queues configuration section [%s]. Creating config." % name)
         config.add_section(name)
         config.set(name, 'sched.keepnrunning.keep_running', node_number)
 
