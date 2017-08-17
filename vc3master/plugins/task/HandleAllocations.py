@@ -6,6 +6,7 @@ from base64 import b64encode
 
 import os
 import json
+import traceback
 
 from vc3master.task import VC3Task
 
@@ -36,19 +37,87 @@ class HandleAllocations(VC3Task):
         reason      = None
 
         self.log.debug("Processing allocation '%s'", allocation.name)
+        if allocation.state == 'new': 
+            # nexts: validated, invalid
+            (next_state, reason) = self.state_new(allocation)
+
+        if allocation.state == 'authconfigured':
+            # nexts: configured, pending, terminating
+            # waits for action = run
+            (next_state, reason) = self.state_authconfigured(allocation)
+        
+        if allocation.state == 'validated':
+            # nexts: validated, configured, terminating
+            # waits for cluster_state = configured | running
+            (next_state, reason) = self.state_validated(allocation)
+
+        if allocation.state == 'exhausted':
+            # nexts: validated, configured, terminating
+            # waits for cluster_state = configured | running
+            (next_state, reason) = self.state_exhausted(allocation)
+
+        if allocation.state == 'invalid':
+            # nexts: configured, pending, terminating
+            # waits for action = run
+            (next_state, reason) = self.state_invalid(allocation)    
+        
+        if next_state is not allocation.state:
+            
+            try:
+                self.log.debug("allocation '%s'  state '%s' -> %s'", allocation.name, allocation.state, next_state)
+                allocation.state = next_state
+                self.client.storeAllocation(allocation)
+
+            except Exception, e:
+                self.log.warning("Storing the new Allocation state failed.")
+                raise e
+
+
+    def state_new(self, allocation):
+        '''
+        Generates auth info. 
+        '''
+        self.log.debug('processing new allocation %s' % allocation.name)
+        try:
+            self.generate_auth_tokens(allocation)
+            return ('authconfigured', None)
+        except Exception, e:
+            self.log.error("Exception during auth generation %s"% str(e))
+            self.log.error(traceback.format_exc(None))
+            return ('invalid', 'Invalid allocation: %s' % e.reason)
+        return ('invalid', 'Failure: invalid allocation.')
+
+    def state_authconfigured(self, allocation):
+        '''
+        Confirms that allocation can be submitted to...
+        '''
+        return ('validated', None)
+    
+    def state_validated(self, allocation):
+        '''
+        Confirms that allocation is not exhausted. 
+        '''
+        return ('validated', None)    
+
+    def state_invalid(self, allocation):
+        '''
+        Tries to fix allocation.  
+        '''
+        return ('invalid', None)  
     
     
-    
-    
-    def generate_auth_tokens(self, principle):
+    def generate_auth_tokens(self, allocation):
         """ 
-        Generate SSH priv/pub keys and base64 encode them
+        Generate SSH priv/pub keys and base64 encode them, placing them in allocation 
         """ 
-        self.log.info("Generating or retrieving SSH keys for %s", principle)
+        self.log.info("Generating or retrieving SSH keys for %s", allocation.name)
         self.ssh = self.parent.parent.ssh
-        (pub, priv) = self.ssh.getkeys(principle)
+        (pub, priv) = self.ssh.getkeys(allocation.name)
         self.log.debug("public key: %s", pub)
         encoded_pub = b64encode(pub)
         encoded_priv = b64encode(priv)
-        return encoded_pub, encoded_priv
+        allocation.sectype = "ssh-rsa"
+        allocation.pubtoken = encoded_pub
+        allocation.privtoken = encoded_priv
+        
     
