@@ -42,4 +42,45 @@ class SetRequestStatus(VC3Task):
         '''
         merge the content of statusraw into a single dictionary
         '''
-        statusraw = request.statusraw
+        
+        #
+        # statusraw looks like this 
+        #
+        #      {'factory1': {'nodeset1': {'queue1': {'running': 1, 'idle': 5}},
+        #                    'nodeset2': {'queue2': {'running': 3, 'idle': 6},
+        #                                 'queue3': {'running': 3, 'idle': 7}
+        #                                }
+        #                   },
+        #       'factory2': {'nodeset1': {'queue4': {'running': 8, 'idle': 1}}}
+        #      }
+        #
+        # the output of this methid, status, must be like this
+        #
+        #       {'nodeset1': {'running': 9, 'idle': 6}, 
+        #        'nodeset2': {'running': 6, 'idle': 13}
+        #       }
+        #
+
+
+        self.log.debug('Starting')
+
+        status = {}
+        
+        for factory, nodeset_l in request.statusraw.items():
+            self.log.debug('processing factory %s' %factory)
+            for nodeset, queue_l in nodeset_l.items():
+                self.log.debug('processing nodeset %s' %nodeset)
+                if nodeset not in status.keys():
+                    self.log.debug('adding new nodeset %s to the dictionary keys' %nodeset)
+                    status[nodeset] = {}
+                for queue, jobstatus_l in queue_l.items():
+                    self.log.debug('processing queue %s' %queue)
+                    for jobstatus, number in jobstatus_l.items():
+                        self.log.debug('adding %s to status %s'%(number, jobstatus))
+                        if jobstatus not in status[nodeset].keys():
+                            status[nodeset][jobstatus] = number
+                        else:
+                            status[nodeset][jobstatus] += number
+
+
+
