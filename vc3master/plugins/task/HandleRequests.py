@@ -279,17 +279,16 @@ class HandleRequests(VC3Task):
         
         # For now no policies. Just calculated static-balanced 
         node_number = 0
-        if request.action is not None:
-            if request.action == 'run':
-                numalloc = len(request.allocations)
-                total_to_run = int(nodeset.node_number)
-                node_number = total_to_run / numalloc
-                self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numalloc,
-                                                                                                                 total_to_run,
-                                                                                                                 node_number))
-            elif request.action == 'terminate':
-                node_number = 0
-                self.log.debug("Action is terminate. Setting keepnrunning to 0")
+        if request.action == 'run' or request.action == 'new':
+            numalloc = len(request.allocations)
+            total_to_run = int(nodeset.node_number)
+            node_number = total_to_run / numalloc
+            self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numalloc,
+                                                                                                             total_to_run,
+                                                                                                             node_number))
+        if request.action == 'terminate':
+            node_number = 0
+            self.log.debug("Action is terminate. Setting keepnrunning to 0")
                 
         
         name = request.name + '.' + nodeset_name + '.' + allocation_name
