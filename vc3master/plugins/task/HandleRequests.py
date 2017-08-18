@@ -133,6 +133,7 @@ class HandleRequests(VC3Task):
         if self.request_is_valid(request):
             try:
                 if self.add_queues_conf(request) and self.add_auth_conf(request):
+                    request.action = 'run'
                     return ('validated', None)
             except VC3InvalidRequest, e:
                 #raise e
