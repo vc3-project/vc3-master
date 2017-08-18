@@ -20,6 +20,10 @@ class SetRequestStatus(VC3Task):
     '''
 
     def __init__(self, parent, config, section):
+        '''
+        parent is object of class VC3TaskSet 
+        parent of VC3TaskSet is VC3Master
+        '''
         super(HandleRequests, self).__init__(parent, config, section)
         self.client = parent.client
         self.log.debug("SetRequestStatus VC3Task initialized.")
@@ -27,9 +31,15 @@ class SetRequestStatus(VC3Task):
     def runtask(self):
         self.log.info("Running task %s" % self.section)
         self.log.debug("Polling master....")
-        requests = self.client.listRequests()
-        n = len(requests) if requests else 0
+        request_l = self.client.listRequests()
+        n = len(request_l) if request_l else 0
         self.log.debug("Processing %d requests" % n)
-        if requests:
-            for r in requests:
-                self.process_request(r)
+        if request_l:
+            for request in request_l:
+                self.process_request(request)
+
+    def process_request(self, request):
+        '''
+        merge the content of statusraw into a single dictionary
+        '''
+        statusraw = request.statusraw
