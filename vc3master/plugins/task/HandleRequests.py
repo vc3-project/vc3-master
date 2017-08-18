@@ -144,7 +144,14 @@ class HandleRequests(VC3Task):
     def state_validated(self, request):
         self.log.debug('validating request %s' % request.name)
 
-        # validate request here
+        if self.request_is_valid(request):
+            try:
+                if self.add_queues_conf(request) and self.add_auth_conf(request):
+                    return ('validated', None)
+            except VC3InvalidRequest, e:
+                #raise e
+                self.log.warning("Invalid Request: %s" % str(e))
+                return ('terminated', 'Invalid request: %s' % e.reason)
 
         return self.state_by_cluster(request, ['new', 'configured'])
 
