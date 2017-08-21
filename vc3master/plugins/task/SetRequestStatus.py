@@ -29,6 +29,11 @@ class SetRequestStatus(VC3Task):
         self.log.debug("SetRequestStatus VC3Task initialized.")
 
     def runtask(self):
+        '''
+        base class method to perform actions for this plugin.
+        It loops over the list of requests and calls method
+                process_request
+        '''
         self.log.info("Running task %s" % self.section)
         self.log.debug("Polling master....")
         request_l = self.client.listRequests()
@@ -40,27 +45,29 @@ class SetRequestStatus(VC3Task):
 
     def process_request(self, request):
         '''
-        merge the content of statusraw into a single dictionary
-        '''
-        
-        #
-        # statusraw looks like this 
-        #
-        #      {'factory1': {'nodeset1': {'queue1': {'running': 1, 'idle': 5}},
-        #                    'nodeset2': {'queue2': {'running': 3, 'idle': 6},
-        #                                 'queue3': {'running': 3, 'idle': 7}
-        #                                }
-        #                   },
-        #       'factory2': {'nodeset1': {'queue4': {'running': 8, 'idle': 1}}}
-        #      }
-        #
-        # the output of this methid, status, must be like this
-        #
-        #       {'nodeset1': {'running': 9, 'idle': 6}, 
-        #        'nodeset2': {'running': 6, 'idle': 13}
-        #       }
-        #
+        merges the content of Request attribute statusraw into a single dictionary
+        and set attribute statusinfo with that aggreagated result
 
+        Example: 
+        if statusraw looks like this 
+        
+             {'factory1': {'nodeset1': {'queue1': {'running': 1, 'idle': 5}},
+                           'nodeset2': {'queue2': {'running': 3, 'idle': 6},
+                                        'queue3': {'running': 3, 'idle': 7}
+                                       }
+                          },
+              'factory2': {'nodeset1': {'queue4': {'running': 8, 'idle': 1}}}
+             }
+        
+        the output of this methid, status, must be like this
+        
+              {'nodeset1': {'running': 9, 'idle': 6}, 
+               'nodeset2': {'running': 6, 'idle': 13}
+              }
+        
+
+        :param Request request: the Request object being processed
+        '''
 
         self.log.debug('Starting')
 
