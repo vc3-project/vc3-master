@@ -45,6 +45,21 @@ class SetRequestStatus(VC3Task):
 
     def process_request(self, request):
         '''
+        processes each Request, and stores in the InfoService
+        an updated object with new content for attribute statusinfo        
+
+        :param Request request: the Request object being processed
+        '''
+        self.log.debug('Starting')
+        statusinfo = self._get_statusinfo(request)
+        self.log.info('Statusinfo for request %s is %s' %(request.name, statusinfo))
+        request.statusinfo = statusinfo
+        self.client.storeRequest(request)
+        self.log.debug('Updated Request object stored')
+        self.log.debug('Leaving')
+
+    def _get_statusinfo(self, request): 
+        """
         merges the content of Request attribute statusraw into a single dictionary
         and set attribute statusinfo with that aggreagated result
 
@@ -67,27 +82,27 @@ class SetRequestStatus(VC3Task):
         
 
         :param Request request: the Request object being processed
-        '''
-
+        """
         self.log.debug('Starting')
-
-        status = {}
-        
-        for factory, nodeset_l in request.statusraw.items():
-            self.log.debug('processing factory %s' %factory)
-            for nodeset, queue_l in nodeset_l.items():
-                self.log.debug('processing nodeset %s' %nodeset)
-                if nodeset not in status.keys():
-                    self.log.debug('adding new nodeset %s to the dictionary keys' %nodeset)
-                    status[nodeset] = {}
-                for queue, jobstatus_l in queue_l.items():
-                    self.log.debug('processing queue %s' %queue)
-                    for jobstatus, number in jobstatus_l.items():
-                        self.log.debug('adding %s to status %s'%(number, jobstatus))
-                        if jobstatus not in status[nodeset].keys():
-                            status[nodeset][jobstatus] = number
-                        else:
-                            status[nodeset][jobstatus] += number
-
-
+        statusinfo = {}
+        if not request.statusraw:
+            self.log.warning('Statusraw for request %s is not yet a valid dictionary' %request.name)
+        else:
+            for factory, nodeset_l in request.statusraw.items():
+                self.log.debug('Processing factory %s' %factory)
+                for nodeset, queue_l in nodeset_l.items():
+                    self.log.debug('Processing nodeset %s' %nodeset)
+                    if nodeset not in statusinfo.keys():
+                        self.log.debug('Adding new nodeset %s to the dictionary keys' %nodeset)
+                        statusinfo[nodeset] = {}
+                    for queue, jobstatus_l in queue_l.items():
+                        self.log.debug('Processing queue %s' %queue)
+                        for jobstatus, number in jobstatus_l.items():
+                            self.log.debug('Adding %s to statusinfo %s'%(number, jobstatus))
+                            if jobstatus not in statusinfo[nodeset].keys():
+                                statusinfo[nodeset][jobstatus] = number
+                            else:
+                                statusinfo[nodeset][jobstatus] += number
+        self.log.debug('Leaving')
+        return statusinfo
 
