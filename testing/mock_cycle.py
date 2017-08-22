@@ -42,12 +42,18 @@ if __name__ == '__main__':
     environment_1 = client.defineEnvironment(name = 'ENVIRONMENT_1', owner = 'Waldo', packagelist = ['cctools'])
     environment_1 = client.defineEnvironment(name = 'ENVIRONMENT_2', owner = 'Waldo', packagelist = ['curl', 'uuid'])
 
+    node_set_1 = client.defineNodeset(name = 'NODE_SET_1', owner = 'Waldo', app_type = 'APP_TYPE', app_role = 'APP_ROLE', node_number = 10)
+
+    cluster_1  = client.defineCluster(name = 'CLUSTER_1', owner = 'Waldo', nodesets = ['NODE_SET_1'])
+
     r = client.defineRequest(name = 'REQUEST_1', owner = 'Waldo', cluster = 'CLUSTER_1', allocations = ['ALLOCATION_1', 'ALLOCATION_2'], environments = ['ENVIRONMENT_1', 'ENVIRONMENT_2'], policy = None, expiration = None)
 
     client.storeAllocation(allocation_1)
     client.storeAllocation(allocation_2)
     client.storeResource(resource_1)
     client.storeResource(resource_2)
+    client.storeNodeset(node_set_1)
+    client.storeCluster(cluster_1)
     client.storeEnvironment(environment_1)
     client.storeRequest(r)
 
@@ -65,11 +71,7 @@ if __name__ == '__main__':
     log.info('contents of auth.conf:\n%s\n', base64.b64decode(r.authconf))
 
     log.info('simulating factory configuration')
-    r.cluster_state = 'configured'
-    client.storeRequest(r)
-
-    log.info('simulating terminate command from webportal')
-    r.action = 'run'
+    r.statusinfo = {'running' : 0, 'idle' : 0};
     client.storeRequest(r)
 
     while True:
@@ -77,13 +79,13 @@ if __name__ == '__main__':
 
         if r.state != 'pending':
             log.info('Current request state: %s' % r.state)
-            log.info('Waiting for master to observe start action')
+            log.info('Waiting for master to observe configured factory')
             time.sleep(2)
         else:
             break
     
     log.info('simulating that factory started working')
-    r.cluster_state = 'growing'
+    r.statusinfo = {'running' : 5, 'idle' : 0};
     client.storeRequest(r)
 
     while True:
@@ -97,7 +99,7 @@ if __name__ == '__main__':
             break
 
     log.info('simulating that factory fullfilled request')
-    r.cluster_state = 'running'
+    r.statusinfo = {'running' : 10, 'idle' : 0};
     client.storeRequest(r)
 
     while True:
@@ -125,7 +127,7 @@ if __name__ == '__main__':
             break
 
     log.info('simulating factory terminated request')
-    r.cluster_state = 'terminated'
+    r.statusinfo = {'running' : 0, 'idle' : 0};
     client.storeRequest(r)
 
     while True:
