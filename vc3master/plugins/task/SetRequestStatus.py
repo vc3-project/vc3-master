@@ -52,10 +52,13 @@ class SetRequestStatus(VC3Task):
         '''
         self.log.debug('Starting')
         statusinfo = self._get_statusinfo(request)
-        self.log.info('Statusinfo for request %s is %s' %(request.name, statusinfo))
-        request.statusinfo = statusinfo
-        self.client.storeRequest(request)
-        self.log.debug('Updated Request object stored')
+        if statusinfo is not None:
+            self.log.info('statusinfo for request %s is %s' %(request.name, statusinfo))
+            request.statusinfo = statusinfo
+            self.client.storeRequest(request)
+            self.log.debug('Updated Request object stored')
+        else:
+            self.log.info('statusinfo for request %s is still None, nothing to do' %(request.name))
         self.log.debug('Leaving')
 
     def _get_statusinfo(self, request): 
@@ -84,10 +87,11 @@ class SetRequestStatus(VC3Task):
         :param Request request: the Request object being processed
         """
         self.log.debug('Starting')
-        statusinfo = {}
         if not request.statusraw:
-            self.log.warning('Statusraw for request %s is not yet a valid dictionary' %request.name)
+            self.log.warning('Statusraw for request %s is not yet a valid dictionary. Returning None' %request.name)
+            statusinfo = None
         else:
+            statusinfo = {}
             for factory, nodeset_l in request.statusraw.items():
                 self.log.debug('Processing factory %s' %factory)
                 for nodeset, queue_l in nodeset_l.items():
