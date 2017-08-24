@@ -271,15 +271,16 @@ class HandleRequests(VC3Task):
         config.set(name, 'sched.keepnrunning.keep_running', node_number)
 
         if resource.accesstype == 'batch':
+
             config.set(name, 'batchsubmitplugin',          'CondorSSH')
-            config.set(name, 'batchsubmit.condorssh.user', allocation.accountname)
-            config.set(name, 'batchsubmit.condorssh.batch',            resource.accessflavor)
-            config.set(name, 'batchsubmit.condorssh.host',             resource.accesshost)
-            config.set(name, 'batchsubmit.condorssh.port',             str(resource.accessport))
-            config.set(name, 'batchsubmit.condorssh.authprofile',      allocation_name)
+            config.set(name, 'batchsubmit.condorssh.user',  allocation.accountname)
+            config.set(name, 'batchsubmit.condorssh.batch', resource.accessflavor)
+            config.set(name, 'batchsubmit.condorssh.host',  resource.accesshost)
+            config.set(name, 'batchsubmit.condorssh.port',  str(resource.accessport))
+            config.set(name, 'batchsubmit.condorssh.authprofile', allocation_name)
             config.set(name, 'executable',                 '/usr/libexec/vc3-builder')
-            config.set(name, 'executable.args',            self.environment_args(request))
-        
+            config.set(name, 'executable.args',            self.environment_args(request, nodeset_name, allocation_name))
+
         elif resource.accesstype == 'cloud':
             config.set(name, 'batchsubmitplugin',          'CondorEC2')
         else:
@@ -336,7 +337,7 @@ class HandleRequests(VC3Task):
             raise VC3InvalidRequest("Unknown resource access method '%s'" % str(resource.accessmethod), request = request)
 
 
-    def environment_args(self, request):
+    def environment_args(self, request, nodeset_name, allocation_name):
 
         environments = []
         self.log.debug("Retrieving environments: %s" % request.environments)
@@ -364,6 +365,17 @@ class HandleRequests(VC3Task):
         vars  = ' '.join(['--var %s' % x for x in vs])
 
         s  = vars + ' ' + reqs
+
+        # hack handle password-file. if it exists locally, assume it is copied
+        # to _CONDOR_SCRATCH_DIR :
+        name = request.name + '.' + nodeset_name + '.' + allocation_name
+        passname  = name + '.pass'
+        passdir    = os.path.expanduser('~/var/passfiles')
+        localname = os.path.join(outdir, passname)
+
+        if os.path.isfile(localname):
+            config.set(name, 'executable.inputs', localname)
+            s += ' --revar "_CONDOR.*" --var VC3_CONDOR_PASSWORD=${_CONDOR_SCRATCH_DIR}/' + passname
 
         return s
 
