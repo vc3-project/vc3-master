@@ -6,7 +6,6 @@ from base64 import b64encode
 
 import os
 import json
-import errno
 
 from vc3master.task import VC3Task
 
@@ -271,19 +270,16 @@ class HandleRequests(VC3Task):
         config.add_section(name)
         config.set(name, 'sched.keepnrunning.keep_running', node_number)
 
-        environments = self.get_environments(request)
-
         if resource.accesstype == 'batch':
+
             config.set(name, 'batchsubmitplugin',          'CondorSSH')
             config.set(name, 'batchsubmit.condorssh.user',  allocation.accountname)
             config.set(name, 'batchsubmit.condorssh.batch', resource.accessflavor)
             config.set(name, 'batchsubmit.condorssh.host',  resource.accesshost)
             config.set(name, 'batchsubmit.condorssh.port',  str(resource.accessport))
             config.set(name, 'batchsubmit.condorssh.authprofile', allocation_name)
-            config.set(name, 'batchsubmit.condorssh.condor_attributes', 'transfer_input_files =' + self.environment_files(environments, request, nodeset_name, allocation_name))
-
             config.set(name, 'executable',                 '/usr/libexec/vc3-builder')
-            config.set(name, 'executable.args',            self.environment_args(environments, request, nodeset_name, allocation_name))
+            config.set(name, 'executable.args',            self.environment_args(request, nodeset_name, allocation_name))
 
         elif resource.accesstype == 'cloud':
             config.set(name, 'batchsubmitplugin',          'CondorEC2')
@@ -341,8 +337,9 @@ class HandleRequests(VC3Task):
             raise VC3InvalidRequest("Unknown resource access method '%s'" % str(resource.accessmethod), request = request)
 
 
-    def get_environments(request):
-        environments   = []
+    def environment_args(self, request, nodeset_name, allocation_name):
+
+        environments = []
         self.log.debug("Retrieving environments: %s" % request.environments)
         for ename in request.environments:
             eo = self.client.getEnvironment(ename)
@@ -351,7 +348,6 @@ class HandleRequests(VC3Task):
             else:
                 self.log.debug("Failed to retrieve environment %s" % ename)
 
-    def environment_args(self, environments, request, nodeset_name, allocation_name):
         packages = []
         for e in environments:
             packages.extend(e.packagelist)
@@ -370,33 +366,18 @@ class HandleRequests(VC3Task):
 
         s  = vars + ' ' + reqs
 
+        # hack handle password-file. if it exists locally, assume it is copied
+        # to _CONDOR_SCRATCH_DIR :
+        name = request.name + '.' + nodeset_name + '.' + allocation_name
+        passname  = name + '.pass'
+        passdir    = os.path.expanduser('~/var/passfiles')
+        localname = os.path.join(outdir, passname)
+
+        if os.path.isfile(localname):
+            config.set(name, 'executable.inputs', localname)
+            s += ' --revar "_CONDOR.*" --var VC3_CONDOR_PASSWORD=${_CONDOR_SCRATCH_DIR}/' + passname
+
         return s
-
-
-    def environment_files(self, environments, request, nodeset_name, allocation_name):
-        # create scratch local directory to stage input files.
-        # BUG: NEED TO CLEANUP THESE FILES WHEN REQUEST IS FINISHED 
-        name     = request.name + '.' + nodeset_name + '.' + allocation_name
-        localdir = os.path.join(os.path.expanduser('~/var', name))
-
-        try:
-            os.makedirs(localdir)
-        except IOError as e:
-            if e.errno == errno.EEXIST:
-                pass
-            else:
-                raise
-
-        transfer_files = []
-        for e in environments:
-            if e.files:
-                for fname in e.files:
-                    localname = os.join(localdir, fname)
-                    with open(localname, 'r') as f:
-                        f.write(b64decode(e.files[fname]))
-                        transfer_files.append(localname)
-
-        return ','.join(transfer_files)
 
     def is_everything_cleaned_up(self, request):
         ''' TO BE FILLED '''
