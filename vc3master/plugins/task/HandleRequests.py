@@ -39,18 +39,12 @@ class HandleRequests(VC3Task):
         self.log.debug("Processing request '%s'", request.name)
 
         if  request.state == 'new': 
-            # nexts: validated, terminated
+            # nexts: validated, terminating
             (next_state, reason) = self.state_new(request)
 
         if request.state == 'validated':
-            # nexts: validated, configured, terminating
-            # waits for cluster_state = configured | running
+            # nexts: validated, pending, terminating
             (next_state, reason) = self.state_validated(request)
-
-        if request.state == 'configured':
-            # nexts: configured, pending, terminating
-            # waits for action = run
-            (next_state, reason) = self.state_configured(request)
 
         if request.state == 'pending':
             # nexts: pending, growing, running, terminating
@@ -151,11 +145,6 @@ class HandleRequests(VC3Task):
 
     def state_validated(self, request):
         self.log.debug('waiting for factory to configure %s' % request.name)
-        return self.state_by_cluster(request)
-
-    def state_configured(self, request):
-        # nexts: configured, pending, terminating
-        # waits for action = run
         return self.state_by_cluster(request)
 
     def state_pending(self, request):
