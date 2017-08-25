@@ -39,8 +39,12 @@ if __name__ == '__main__':
     allocation_1 = client.defineAllocation(name = 'ALLOCATION_1', owner = 'Waldo', resource = 'RESOURCE_1', accountname = 'vc3-waldo')
     allocation_2 = client.defineAllocation(name = 'ALLOCATION_2', owner = 'Waldo', resource = 'RESOURCE_2', accountname = 'vc3-waldo')
 
-    environment_1 = client.defineEnvironment(name = 'ENVIRONMENT_1', owner = 'Waldo', packagelist = ['cctools'])
-    environment_1 = client.defineEnvironment(name = 'ENVIRONMENT_2', owner = 'Waldo', packagelist = ['curl', 'uuid'])
+    environment_1 = None
+    with open('file-to-stage', 'r') as f:
+        data = f.read()
+        environment_1 = client.defineEnvironment(name = 'ENVIRONMENT_1', owner = 'Waldo', packagelist = ['cctools'], files = {'my_file' : client.encode(data)})
+
+    environment_2 = client.defineEnvironment(name = 'ENVIRONMENT_2', owner = 'Waldo', packagelist = ['curl', 'uuid'])
 
     node_set_1 = client.defineNodeset(name = 'NODE_SET_1', owner = 'Waldo', app_type = 'APP_TYPE', app_role = 'APP_ROLE', node_number = 10)
 
@@ -55,6 +59,7 @@ if __name__ == '__main__':
     client.storeNodeset(node_set_1)
     client.storeCluster(cluster_1)
     client.storeEnvironment(environment_1)
+    client.storeEnvironment(environment_2)
     client.storeRequest(r)
 
     while True:
