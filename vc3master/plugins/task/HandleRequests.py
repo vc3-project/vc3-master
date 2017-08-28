@@ -354,16 +354,28 @@ class HandleRequests(VC3Task):
         if len(packages) < 1:
             self.log.warning("No environment defined a package list for Request")
 
+        command = None
+        for e in environments:
+            if e.command:
+                if command:
+                    self.log.warning("More than one environment defines a command. Using last defined.")
+                command = e.command
+
+
         vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
 
         for e in environments:
             for k in e.envmap:
                 vs.append("%s=%s" % (k, e.envmap[k]))
 
+
         reqs  = ' '.join(['--require %s' % x for x in packages])
         vars  = ' '.join(['--var %s' % x for x in vs])
 
         s  = vars + ' ' + reqs
+
+        if command:
+            s+= ' -- ' + command
 
         return s
 
