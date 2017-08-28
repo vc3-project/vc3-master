@@ -271,14 +271,14 @@ class HandleRequests(VC3Task):
         config.set(name, 'sched.keepnrunning.keep_running', node_number)
 
         if resource.accesstype == 'batch':
-            config.set(name, 'batchsubmitplugin',          'CondorSSH')
-            config.set(name, 'batchsubmit.condorssh.user', allocation.accountname)
-            config.set(name, 'batchsubmit.condorssh.batch',            resource.accessflavor)
-            config.set(name, 'batchsubmit.condorssh.host',             resource.accesshost)
-            config.set(name, 'batchsubmit.condorssh.port',             str(resource.accessport))
-            config.set(name, 'batchsubmit.condorssh.authprofile',      allocation_name)
-            config.set(name, 'executable',                 '/usr/libexec/vc3-builder')
-            config.set(name, 'executable.args',            self.environment_args(request))
+            config.set(name, 'batchsubmitplugin',           'CondorSSH')
+            config.set(name, 'batchsubmit.condorssh.user',  allocation.accountname)
+            config.set(name, 'batchsubmit.condorssh.batch', resource.accessflavor)
+            config.set(name, 'batchsubmit.condorssh.host',  resource.accesshost)
+            config.set(name, 'batchsubmit.condorssh.port',  str(resource.accessport))
+            config.set(name, 'batchsubmit.condorssh.authprofile', allocation_name)
+            config.set(name, 'executable',           '/usr/libexec/vc3-builder')
+            config.set(name, 'executable.arguments', self.environment_args(request))
         
         elif resource.accesstype == 'cloud':
             config.set(name, 'batchsubmitplugin',          'CondorEC2')
