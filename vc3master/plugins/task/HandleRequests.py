@@ -361,6 +361,10 @@ class HandleRequests(VC3Task):
                     self.log.warning("More than one environment defines a command. Using last defined.")
                 command = e.command
 
+        extra_args = ''
+        for e in environments:
+            if e.builder_extra_args:
+                extra_args += ' ' + e.builder_extra_args
 
         vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
 
@@ -372,7 +376,7 @@ class HandleRequests(VC3Task):
         reqs  = ' '.join(['--require %s' % x for x in packages])
         vars  = ' '.join(['--var %s' % x for x in vs])
 
-        s  = vars + ' ' + reqs
+        s  = vars + ' ' + reqs + extra_args
 
         if command:
             s+= ' -- ' + command

@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
     environment_2 = client.defineEnvironment(name = 'ENVIRONMENT_2', owner = 'Waldo', packagelist = ['curl', 'uuid'], command = 'date')
 
-    node_set_1 = client.defineNodeset(name = 'NODE_SET_1', owner = 'Waldo', app_type = 'APP_TYPE', app_role = 'APP_ROLE', node_number = 10)
+    node_set_1 = client.defineNodeset(name = 'NODE_SET_1', owner = 'Waldo', app_type = 'APP_TYPE', app_role = 'APP_ROLE', node_number = 2)
 
     cluster_1  = client.defineCluster(name = 'CLUSTER_1', owner = 'Waldo', nodesets = ['NODE_SET_1'])
 
