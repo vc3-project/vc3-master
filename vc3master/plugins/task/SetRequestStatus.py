@@ -8,7 +8,6 @@ import os
 import json
 
 from vc3master.task import VC3Task
-
 import pluginmanager as pm
 
 
@@ -24,7 +23,7 @@ class SetRequestStatus(VC3Task):
         parent is object of class VC3TaskSet 
         parent of VC3TaskSet is VC3Master
         '''
-        super(HandleRequests, self).__init__(parent, config, section)
+        super(SetRequestStatus, self).__init__(parent, config, section)
         self.client = parent.client
         self.log.debug("SetRequestStatus VC3Task initialized.")
 
