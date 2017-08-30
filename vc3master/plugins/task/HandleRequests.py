@@ -364,7 +364,8 @@ class HandleRequests(VC3Task):
         extra_args = ''
         for e in environments:
             if e.builder_extra_args:
-                extra_args += ' ' + e.builder_extra_args
+                for arg in e.builder_extra_args:
+                    extra_args += ' ' + arg
 
         vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
 
