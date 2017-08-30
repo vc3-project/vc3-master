@@ -95,7 +95,17 @@ class HandleRequests(VC3Task):
             else:
                 return ('validated', 'Waiting for factory to configure itself.')
 
-        running = request.statusinfo.get('running', 0)
+        if not request.statusinfo:
+            return ('terminating', 'Status of request went away.')
+
+        running = 0
+        for pool in request.statusinfo:
+            try:
+                running += request.statusinfo[pool]['running']
+            except KeyError:
+                self.log.warn("Pool '" + pool + "' did not define a running field.")
+
+        self.log.debug("Request '" + request.name + "' has " + str(running) + " jobs running")
 
         if request.cluster_state == 'configured':
             if running > 0:
