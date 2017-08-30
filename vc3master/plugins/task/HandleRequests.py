@@ -287,7 +287,7 @@ class HandleRequests(VC3Task):
             config.set(name, 'batchsubmit.condorssh.host',  resource.accesshost)
             config.set(name, 'batchsubmit.condorssh.port',  str(resource.accessport))
             config.set(name, 'batchsubmit.condorssh.authprofile', allocation_name)
-            config.set(name, 'executable',          '%(executable)s')
+            config.set(name, 'executable',          '%(builder)s')
             config.set(name, 'executable.arguments', self.environment_args(request))
         
         elif resource.accesstype == 'cloud':
