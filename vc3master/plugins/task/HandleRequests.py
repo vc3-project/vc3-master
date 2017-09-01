@@ -74,6 +74,12 @@ class HandleRequests(VC3Task):
             self.log.debug('request %s is done' % request.name)
             (next_state, reason) = (request.state, None)
 
+        if request.action and request.action == 'terminate':
+            if request.state in ['new', 'validated', 'pending']:
+                (next_state, reason) = ('terminating', 'received terminate action')
+            elif request.state in ['growing', 'running']:
+                (next_state, reason) = ('shrinking', 'received terminate action')
+
         if reason:
             request.state_reason = reason
 
@@ -81,6 +87,10 @@ class HandleRequests(VC3Task):
             try:
                 self.log.debug("request '%s'  state '%s' -> %s'", request.name, request.state, next_state)
                 request.state = next_state
+
+                self.add_queues_conf(request) 
+                self.add_auth_conf(request)
+
                 self.client.storeRequest(request)
 
             except Exception, e:
@@ -177,11 +187,7 @@ class HandleRequests(VC3Task):
         action = request.action
         if action == 'terminate':
             self.log.debug("termination requested. Generating queues and auth...")
-            self.add_queues_conf(request) 
-            self.add_auth_conf(request)
             return ('shrinking', 'Explicit termination requested.')
-
-        # what follows is for action = 'run'
         return self.state_by_cluster(request)
 
     def state_shrinking(self, request):
@@ -270,10 +276,8 @@ class HandleRequests(VC3Task):
             numalloc = len(request.allocations)
             total_to_run = int(nodeset.node_number)
             node_number = total_to_run / numalloc
-            self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numalloc,
-                                                                                                             total_to_run,
-                                                                                                             node_number))
-        
+            self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numalloc, total_to_run, node_number))
+
         name = request.name + '.' + nodeset_name + '.' + allocation_name
         self.log.debug("Information finalized for queues configuration section [%s]. Creating config." % name)
         config.add_section(name)
