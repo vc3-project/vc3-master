@@ -44,29 +44,26 @@ if __name__ == '__main__':
         data = f.read()
         environment_1 = client.defineEnvironment(name = 'ENVIRONMENT_1', owner = 'Waldo', packagelist = ['cctools'], files = {'my_file' : client.encode(data)})
 
-    environment_2 = client.defineEnvironment(name = 'ENVIRONMENT_2', owner = 'Waldo', packagelist = ['curl', 'uuid'], command = 'date')
-
-    node_set_1 = client.defineNodeset(name = 'NODE_SET_1', owner = 'Waldo', app_type = 'APP_TYPE', app_role = 'APP_ROLE', node_number = 2)
+    node_set_1 = client.defineNodeset(name = 'NODE_SET_1', owner = 'Waldo', app_type = 'APP_TYPE', app_role = 'APP_ROLE', node_number = 10, environment = 'ENVIRONMENT_1')
 
     cluster_1  = client.defineCluster(name = 'CLUSTER_1', owner = 'Waldo', nodesets = ['NODE_SET_1'])
 
-    r = client.defineRequest(name = 'REQUEST_1', owner = 'Waldo', cluster = 'CLUSTER_1', allocations = ['ALLOCATION_1', 'ALLOCATION_2'], environments = ['ENVIRONMENT_1', 'ENVIRONMENT_2'], policy = None, expiration = None)
+    r = client.defineRequest(name = 'REQUEST_1', owner = 'Waldo', cluster = 'CLUSTER_1', allocations = ['ALLOCATION_1', 'ALLOCATION_2'], policy = None, expiration = None)
 
     client.storeAllocation(allocation_1)
     client.storeAllocation(allocation_2)
     client.storeResource(resource_1)
     client.storeResource(resource_2)
+    client.storeEnvironment(environment_1)
     client.storeNodeset(node_set_1)
     client.storeCluster(cluster_1)
-    client.storeEnvironment(environment_1)
-    client.storeEnvironment(environment_2)
     client.storeRequest(r)
 
     while True:
         r = client.getRequest('REQUEST_1')
 
         if r.state != 'validated':
-            log.info('Current request state: %s' % r.state)
+            log.info('Current request state: %s (%s)' % (r.state, str(r.state_reason)))
             log.info('Waiting for master to validate request')
             time.sleep(2)
         else:
@@ -76,42 +73,42 @@ if __name__ == '__main__':
     log.info('contents of auth.conf:\n%s\n', base64.b64decode(r.authconf))
 
     log.info('simulating factory configuration')
-    r.statusinfo = {'running' : 0, 'idle' : 0};
+    r.statusinfo = {'NODE_SET_1' : {'running' : 0, 'idle' : 0}};
     client.storeRequest(r)
 
     while True:
         r = client.getRequest('REQUEST_1')
 
         if r.state != 'pending':
-            log.info('Current request state: %s' % r.state)
+            log.info('Current request state: %s (%s)' % (r.state, str(r.state_reason)))
             log.info('Waiting for master to observe configured factory')
             time.sleep(2)
         else:
             break
     
     log.info('simulating that factory started working')
-    r.statusinfo = {'running' : 5, 'idle' : 0};
+    r.statusinfo = {'NODE_SET_1' : {'running' : 5, 'idle' : 0}};
     client.storeRequest(r)
 
     while True:
         r = client.getRequest('REQUEST_1')
 
         if r.state != 'growing':
-            log.info('Current request state: %s' % r.state)
+            log.info('Current request state: %s (%s)' % (r.state, str(r.state_reason)))
             log.info('Waiting for master to observe some factory work')
             time.sleep(2)
         else:
             break
 
     log.info('simulating that factory fullfilled request')
-    r.statusinfo = {'running' : 10, 'idle' : 0};
+    r.statusinfo = {'NODE_SET_1' : {'running' : 10, 'idle' : 0}};
     client.storeRequest(r)
 
     while True:
         r = client.getRequest('REQUEST_1')
 
         if r.state != 'running':
-            log.info('Current request state: %s' % r.state)
+            log.info('Current request state: %s (%s)' % (r.state, str(r.state_reason)))
             log.info('Waiting for master to observe all factory work')
             time.sleep(2)
         else:
@@ -125,27 +122,23 @@ if __name__ == '__main__':
         r = client.getRequest('REQUEST_1')
 
         if r.state != 'shrinking':
-            log.info('Current request state: %s' % r.state)
+            log.info('Current request state: %s (%s)' % (r.state, str(r.state_reason)))
             log.info('Waiting for master to observe terminate action')
             time.sleep(2)
         else:
             break
 
     log.info('simulating factory terminated request')
-    r.statusinfo = {'running' : 0, 'idle' : 0};
+    r.statusinfo = {'NODE_SET_1' : {'running' : 0, 'idle' : 0}};
     client.storeRequest(r)
 
     while True:
         r = client.getRequest('REQUEST_1')
 
         if r.state != 'terminated':
-            log.info('Current request state: %s' % r.state)
+            log.info('Current request state: %s (%s)' % (r.state, str(r.state_reason)))
             log.info('Waiting for master to terminate request')
             time.sleep(2)
         else:
             break
-
-
-
-    
 

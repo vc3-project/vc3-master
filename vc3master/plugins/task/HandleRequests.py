@@ -247,27 +247,61 @@ class HandleRequests(VC3Task):
         allocation = self.client.getAllocation(allocation_name)
         if not allocation:
             raise VC3InvalidRequest("Allocation '%s' has not been declared." % allocation_name, request = request)
+
+        resource = self.client.getResource(allocation.resource)
+        if not resource:
+            raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
         
         cluster = self.client.getCluster(request.cluster)
         if not cluster:
             raise VC3InvalidRequest("Cluster '%s' has not been declared." % cluster.name, request = request)
-        
-        # For now we will assume that there is only one nodeset per cluster (and request)        
+
         if len(cluster.nodesets) < 1:
             raise VC3InvalidRequest("No nodesets have been added to Cluster '%s' " % cluster.name, request = request)
-        
-        nodeset_name = cluster.nodesets[0]
-        self.log.debug("nodeset_name is %s for cluster %s " % ( nodeset_name, cluster.name))
-        nodeset = self.client.getNodeset(nodeset_name)
-        self.log.debug("Retrieved %s for name %s" % ( nodeset, nodeset_name))
-        if not nodeset:
-            raise VC3InvalidRequest("Nodeset '%s' has not been declared." % nodeset_name, request = request)
-        resource = self.client.getResource(allocation.resource)
-        if not resource:
-            raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
-        self.log.debug("Valid objects gathered for queues configuration. Calculating nodes to run...")
-        
+
+        for nodeset_name in cluster.nodesets:
+            self.log.debug("retriving nodeset %s for cluster %s " % (nodeset_name, cluster.name))
+            nodeset = self.client.getNodeset(nodeset_name)
+            if not nodeset:
+                raise VC3InvalidRequest("Nodeset '%s' has not been declared." % nodeset_name, request = request)
+            self.log.debug("Retrieved %s for name %s" % ( nodeset, nodeset_name))
+            self.add_nodeset_to_queuesconf(config, request, resource, allocation, cluster, nodeset)
+
+    def add_nodeset_to_queuesconf(self, config, request, resource, allocation, cluster, nodeset):
+        node_number  = self.jobs_to_run_by_policy(request, nodeset)
+        section_name = request.name + '.' + nodeset.name + '.' + allocation.name
+
+        self.log.debug("Information finalized for queues configuration section [%s]. Creating config." % section_name)
+
+        config.add_section(section_name)
+        config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
+
+        if resource.accesstype == 'batch':
+            config.set(section_name, 'batchsubmitplugin',           'CondorSSH')
+            config.set(section_name, 'batchsubmit.condorssh.user',  allocation.accountname)
+            config.set(section_name, 'batchsubmit.condorssh.batch', resource.accessflavor)
+            config.set(section_name, 'batchsubmit.condorssh.host',  resource.accesshost)
+            config.set(section_name, 'batchsubmit.condorssh.port',  str(resource.accessport))
+            config.set(section_name, 'batchsubmit.condorssh.authprofile', allocation.name)
+            config.set(section_name, 'executable',          '%(builder)s')
+            if nodeset.environment:
+                self.add_environment_to_queuesconf(config, request, section_name, nodeset.environment)
+        elif resource.accesstype == 'cloud':
+            config.set(name, 'batchsubmitplugin',          'CondorEC2')
+        elif resource.accesstype == 'local':
+            config.set(name, 'batchsubmitplugin',          'CondorLocal')
+            config.set(name, 'executable',          '%(builder)s')
+            if nodeset.environment:
+                self.add_environment_to_queuesconf(config, request, section_name, nodeset.environment)
+        else:
+            raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
+
+        self.log.debug("Completed filling in config for allocation %s" % allocation.name)
+
+
+    def jobs_to_run_by_policy(self, request, nodeset):
         # For now no policies. Just calculated static-balanced 
+        self.log.debug("Calculating nodes to run...")
         node_number = 0
         if request.action == 'terminate':
             node_number = 0
@@ -277,30 +311,7 @@ class HandleRequests(VC3Task):
             total_to_run = int(nodeset.node_number)
             node_number = total_to_run / numalloc
             self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numalloc, total_to_run, node_number))
-
-        name = request.name + '.' + nodeset_name + '.' + allocation_name
-        self.log.debug("Information finalized for queues configuration section [%s]. Creating config." % name)
-        config.add_section(name)
-        config.set(name, 'sched.keepnrunning.keep_running', node_number)
-
-        if resource.accesstype == 'batch':
-            config.set(name, 'batchsubmitplugin',           'CondorSSH')
-            config.set(name, 'batchsubmit.condorssh.user',  allocation.accountname)
-            config.set(name, 'batchsubmit.condorssh.batch', resource.accessflavor)
-            config.set(name, 'batchsubmit.condorssh.host',  resource.accesshost)
-            config.set(name, 'batchsubmit.condorssh.port',  str(resource.accessport))
-            config.set(name, 'batchsubmit.condorssh.authprofile', allocation_name)
-            config.set(name, 'executable',          '%(builder)s')
-            config.set(name, 'executable.arguments', self.environment_args(request))
-        
-        elif resource.accesstype == 'cloud':
-            config.set(name, 'batchsubmitplugin',          'CondorEC2')
-        else:
-            raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
-
-        self.log.debug("Completed filling in config for allocation %s" % allocation_name)
-
-
+        return node_number
 
     def generate_auth_tokens(self, principle):
         """ 
@@ -349,53 +360,36 @@ class HandleRequests(VC3Task):
             raise VC3InvalidRequest("Unknown resource access method '%s'" % str(resource.accessmethod), request = request)
 
 
-    def environment_args(self, request):
+    def add_environment_to_queuesconf(self, config, request, section_name, environment_name):
+        if environment_name is None:
+            return
 
-        environments = []
-        self.log.debug("Retrieving environments: %s" % request.environments)
-        for ename in request.environments:
-            eo = self.client.getEnvironment(ename)
-            if eo is not None:
-                environments.append(eo)
-            else:
-                self.log.debug("Failed to retrieve environment %s" % ename)
+        environment = self.client.getEnvironment(environment_name)
+        if environment is None:
+            raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (environment_name, section_name), request = request)
 
-        packages = []
-        for e in environments:
-            packages.extend(e.packagelist)
+        config.set(section_name, 'vc3.environment', environment.name)
 
-        if len(packages) < 1:
-            self.log.warning("No environment defined a package list for Request")
+        if len(environment.packagelist) < 1:
+            self.log.warning("Environment '%s' did not define a package" % (environment.name))
+            return
 
-        command = None
-        for e in environments:
-            if e.command:
-                if command:
-                    self.log.warning("More than one environment defines a command. Using last defined.")
-                command = e.command
+        vs    = [ "VC3_REQUESTID='%s'" % request.name, "VC3_QUEUE='%s'" % section_name]
+        for k in environment.envmap:
+            vs.append("%s=%s" % (k, environment.envmap[k]))
 
-        extra_args = ''
-        for e in environments:
-            if e.builder_extra_args:
-                for arg in e.builder_extra_args:
-                    extra_args += ' ' + arg
-
-        vs    = [ "VC3_REQUESTID='%s'" % request.name, ]
-
-        for e in environments:
-            for k in e.envmap:
-                vs.append("%s=%s" % (k, e.envmap[k]))
-
-
-        reqs  = ' '.join(['--require %s' % x for x in packages])
+        reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
         vars  = ' '.join(['--var %s' % x for x in vs])
 
-        s  = vars + ' ' + reqs + extra_args
+        s  = vars + ' ' + reqs
 
-        if command:
-            s+= ' -- ' + command
+        if environment.builder_extra_args:
+            s += ' ' + environment.builder_extra_args
 
-        return s
+        if environment.command:
+            s += ' -- ' + environment.command
+
+        config.set(section_name, 'executable.arguments', s)
 
     def is_everything_cleaned_up(self, request):
         ''' TO BE FILLED '''
