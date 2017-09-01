@@ -384,7 +384,7 @@ class HandleRequests(VC3Task):
         s  = vars + ' ' + reqs
 
         if environment.builder_extra_args:
-            s += ' ' + environment.builder_extra_args
+            s += ' ' + ' '.join(environment.builder_extra_args)
 
         if environment.command:
             s += ' -- ' + environment.command
