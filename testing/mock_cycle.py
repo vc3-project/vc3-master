@@ -44,7 +44,7 @@ if __name__ == '__main__':
         data = f.read()
         environment_1 = client.defineEnvironment(name = 'ENVIRONMENT_1', owner = 'Waldo', packagelist = ['cctools'], files = {'my_file' : client.encode(data)})
 
-    node_set_1 = client.defineNodeset(name = 'NODE_SET_1', owner = 'Waldo', app_type = 'APP_TYPE', app_role = 'APP_ROLE', node_number = 2, environment = 'ENVIRONMENT_1')
+    node_set_1 = client.defineNodeset(name = 'NODE_SET_1', owner = 'Waldo', app_type = 'APP_TYPE', app_role = 'APP_ROLE', node_number = 10, environment = 'ENVIRONMENT_1')
 
     cluster_1  = client.defineCluster(name = 'CLUSTER_1', owner = 'Waldo', nodesets = ['NODE_SET_1'])
 

@@ -75,9 +75,9 @@ class HandleRequests(VC3Task):
             (next_state, reason) = (request.state, None)
 
         if request.action and request.action == 'terminate':
-            if request.state in ['new', 'validated', 'pending']:
+            if next_state in ['new', 'validated', 'pending']:
                 (next_state, reason) = ('terminating', 'received terminate action')
-            elif request.state in ['growing', 'running']:
+            elif next_state in ['growing', 'running']:
                 (next_state, reason) = ('shrinking', 'received terminate action')
 
         if reason:
