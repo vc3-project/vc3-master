@@ -283,14 +283,14 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorssh.host',  resource.accesshost)
             config.set(section_name, 'batchsubmit.condorssh.port',  str(resource.accessport))
             config.set(section_name, 'batchsubmit.condorssh.authprofile', allocation.name)
-            config.set(section_name, 'executable',          '%(builder)s')
+            config.set(section_name, 'executable',          '       %(builder)s')
             if nodeset.environment:
                 self.add_environment_to_queuesconf(config, request, section_name, nodeset.environment)
         elif resource.accesstype == 'cloud':
-            config.set(name, 'batchsubmitplugin',          'CondorEC2')
+            config.set(section_name, 'batchsubmitplugin',          'CondorEC2')
         elif resource.accesstype == 'local':
-            config.set(name, 'batchsubmitplugin',          'CondorLocal')
-            config.set(name, 'executable',          '%(builder)s')
+            config.set(section_name, 'batchsubmitplugin',          'CondorLocal')
+            config.set(section_name, 'executable',                 '%(builder)s')
             if nodeset.environment:
                 self.add_environment_to_queuesconf(config, request, section_name, nodeset.environment)
         else:
@@ -356,6 +356,9 @@ class HandleRequests(VC3Task):
             config.set(name, 'ssh.privatekey', allocation.privtoken)
         elif resource.accesstype == 'gsissh':
             raise NoImplementedError
+        elif resource.accesstype == 'local':
+            # nothing special is needed
+            config.set(name, 'plugin',        'Noop')
         else:
             raise VC3InvalidRequest("Unknown resource access method '%s'" % str(resource.accessmethod), request = request)
 
