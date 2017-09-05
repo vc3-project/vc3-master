@@ -260,7 +260,7 @@ class HandleRequests(VC3Task):
             raise VC3InvalidRequest("No nodesets have been added to Cluster '%s' " % cluster.name, request = request)
 
         for nodeset_name in cluster.nodesets:
-            self.log.debug("retriving nodeset %s for cluster %s " % (nodeset_name, cluster.name))
+            self.log.debug("retrieving nodeset %s for cluster %s " % (nodeset_name, cluster.name))
             nodeset = self.client.getNodeset(nodeset_name)
             if not nodeset:
                 raise VC3InvalidRequest("Nodeset '%s' has not been declared." % nodeset_name, request = request)
