@@ -51,34 +51,25 @@ class HandleRequests(VC3Task):
             # to growing until at least one element of the request is fulfilled
             (next_state, reason) = self.state_pending(request)
 
-        if request.state == 'growing':
+        if request.state in ['growing', 'running', 'shrinking']:
             # nexts: growing, shrinking, running, terminating
-            # to running until all elements of the request are fulfilled
-            (next_state, reason) = self.state_growing(request)
-
-        if request.state == 'running':
-            # nexts: shrinking, running, terminating
-            # waits for action = terminate
-            (next_state, reason) = self.state_running(request)
-
-        if request.state == 'shrinking':
-            # nexts: shrinking, terminating
-            # to terminating 
-            (next_state, reason) = self.state_shrinking(request)
+            (next_state, reason) = self.state_active_states(request)
 
         if request.state == 'terminating':
             # waits until everything has been cleanup
             (next_state, reason) = self.state_terminating(request)
+
+        if request.state == 'cleanup':
+            # waits until everything has been cleanup
+            (next_state, reason) = self.state_cleanup(request)
 
         if request.state == 'terminated':
             self.log.debug('request %s is done' % request.name)
             (next_state, reason) = (request.state, None)
 
         if request.action and request.action == 'terminate':
-            if next_state in ['new', 'validated', 'pending']:
+            if not self.is_finishing_state(next_state):
                 (next_state, reason) = ('terminating', 'received terminate action')
-            elif next_state in ['growing', 'running']:
-                (next_state, reason) = ('shrinking', 'received terminate action')
 
         if reason:
             request.state_reason = reason
@@ -97,51 +88,8 @@ class HandleRequests(VC3Task):
                 self.log.warning("Storing the new request state failed.")
                 raise e
 
-    def state_by_cluster(self, request):
-
-        if request.cluster_state == 'new':
-            if request.statusinfo:
-                request.cluster_state = 'configured'
-            else:
-                return ('validated', 'Waiting for factory to configure itself.')
-
-        if not request.statusinfo:
-            return ('terminating', 'Status of request went away.')
-
-        running = 0
-        for pool in request.statusinfo:
-            try:
-                running += request.statusinfo[pool]['running']
-            except KeyError:
-                self.log.warn("Pool '" + pool + "' did not define a running field.")
-
-        self.log.debug("Request '" + request.name + "' has " + str(running) + " jobs running")
-
-        if request.cluster_state == 'configured':
-            if running > 0:
-                request.cluster_state = 'running'
-            else:
-                return ('pending', 'Waiting for factory to start filling the request.')
-
-        total_of_nodes = self.total_jobs_requested(request)
-
-        if request.cluster_state == 'running':
-            if total_of_nodes == 0 and running == 0:
-                request.cluster_state = 'terminating'
-            if total_of_nodes > running:
-                return ('growing', 'Factory is fulfilling the request.')
-            elif total_of_nodes < running:
-                return ('shrinking', 'Factory is draining the request.')
-            else:
-                return ('running', 'Factory completely fulfilled the request')
-
-        if request.cluster_state == 'terminating':
-            return ('terminating', 'cluster in terminating state')
-
-        if request.cluster_state == 'failure':
-            return ('terminating', 'Failure: cluster reported a failure: %s.' % 'because of reasons')
-
-        return ('terminating', 'Failure: cluster reached an unkown state: %s.' % 'because of reasons')
+    def is_finishing_state(self, state):
+        return state in ['terminating', 'cleanup', 'terminated']
 
     def request_is_valid(self, request):
         return True
@@ -151,64 +99,68 @@ class HandleRequests(VC3Task):
         Validates all new requests. 
         '''
         self.log.debug('processing new request %s' % request.name)
-
         if self.request_is_valid(request):
             return ('validated', None)
-        else:
-            self.log.warning("Invalid Request: %s" % str(e))
-            return ('terminated', 'Invalid request: %s' % e.reason)
-
-        return ('terminated', 'Failure: invalid request')
+        self.log.warning("Invalid Request: %s" % str(e))
+        return ('terminated', 'Invalid request: %s' % e.reason)
 
     def state_validated(self, request):
         self.log.debug('waiting for factory to configure %s' % request.name)
-        return self.state_by_cluster(request)
+
+        running = self.job_count_with_state(request, 'running')
+        if running is None:
+            # factory has not reported anything, so we remain in the validated state. 
+            return ('validated', None)
+        else:
+            # factory updated the status of the queue, so we know the request is configured.
+            return ('pending', 'Waiting for factory to start filling the request.')
 
     def state_pending(self, request):
-        self.log.debug('waiting for factory to start fullfilling request %s' % request.name)
-        return self.state_by_cluster(request)
+        self.log.debug('waiting for factory to start fulfilling request %s' % request.name)
 
-    def state_growing(self, request):
-        self.log.debug('waiting for factory to fullfill request %s' % request.name)
+        running = self.job_count_with_state(request, 'running')
+        if running is None:
+            self.log.warning('Failure: status of request %s went away.' % request.name)
+            return ('terminating', 'Failure: status of request %s went away.' % request.name)
+        elif running > 0:
+            return ('growing', 'factory started fulfilling request %s.' % request.name)
+        else:
+            return ('pending', 'Waiting for factory to start filling the request.')
 
-        action = request.action
-        if action == 'terminate':
-            return ('shrinking', 'Explicit termination requested.')
 
-        # what follows is for action = 'run'
-        return self.state_by_cluster(request)
+    def state_active_states(self, request):
+        total_of_nodes = self.total_jobs_requested(request)
+        running        = self.job_count_with_state(request, 'running')
 
-    def state_running(self, request):
-        self.log.debug('request %s is running' % request.name)
-
-        action = request.action
-        if action == 'terminate':
-            self.log.debug("termination requested. Generating queues and auth...")
-            return ('shrinking', 'Explicit termination requested.')
-        return self.state_by_cluster(request)
-
-    def state_shrinking(self, request):
-        self.log.debug('request %s is shrinking' % request.name)
-
-        action = request.action
-        if action and action is not 'terminate':
-            # ignoring action... do something here?
-            pass
-
-        return self.state_by_cluster(request)
+        if running is None:
+            self.log.warning('Failure: status of request %s went away.' % request.name)
+            return ('terminating', 'Failure: status of request %s went away.' % request.name)
+        elif total_of_nodes > running:
+            return ('growing', 'Factory is fulfilling the request.')
+        elif total_of_nodes < running:
+            return ('shrinking', 'Factory is draining jobs.')
+        else:
+            return ('running', 'Factory completely fulfilled the request')
 
     def state_terminating(self, request):
         self.log.debug('request %s is terminating' % request.name)
+        running = self.job_count_with_state(request, 'running')
 
-        action = request.action
-        if action and action is not 'terminate':
-            # ignoring action... do something here?
-            pass
+        if running is None:
+            self.log.warning('Failure: status of request %s went away.' % request.name)
+            return ('cleanup', 'Failure: status of request %s went away.' % request.name)
+        elif running == 0:
+            return ('cleanup', 'Factory finished draining the request.')
+        else:
+            return ('terminating', None)
 
+
+    def state_cleanup(self, request):
+        self.log.debug('collecting garbage for request %s' % request.name)
+
+        # to fill cleanup here!
         if self.is_everything_cleaned_up(request):
-            return ('terminated', None)
-
-        return self.state_by_cluster(request)
+            return ('terminated', 'Garbage collected')
 
 
     def add_queues_conf(self, request):
@@ -300,9 +252,10 @@ class HandleRequests(VC3Task):
         # For now no policies. Just calculated static-balanced 
         self.log.debug("Calculating nodes to run...")
         node_number = 0
-        if request.action == 'terminate':
+
+        if self.is_finishing_state(request.state):
             node_number = 0
-            self.log.debug("Action is terminate. Setting keepnrunning to 0")
+            self.log.debug("Request in finishing state. Setting keepnrunning to 0")
         else:
             numalloc = len(request.allocations)
             total_to_run = int(nodeset.node_number)
@@ -395,14 +348,34 @@ class HandleRequests(VC3Task):
         ''' TO BE FILLED '''
         return True
 
+    def job_count_with_state(self, request, state):
+        if not request.statusraw:
+            return None
+
+        at_least_one_nodeset = False
+        count = 0
+
+        for factory, nodeset in request.statusraw.items():
+            for nodeset, queueset in nodeset.items():
+                for queue, jobstatus in queueset.items():
+                    at_least_one_nodeset = True
+                    count += jobstatus.get(state, 0)
+
+        if at_least_one_nodeset:
+            return count
+
+        return None
+
+
     def total_jobs_requested(self, request):
+
+        if self.is_finishing_state(request.state):
+            return 0
+
         cluster = self.client.getCluster(request.cluster)
 
         if len(cluster.nodesets) < 1:
             raise VC3InvalidRequest("No nodesets have been added to Cluster '%s' " % cluster.name, request = request)
-
-        if request.action == 'terminate':
-            return 0
 
         total_jobs = 0
         for nodeset_name in cluster.nodesets:
