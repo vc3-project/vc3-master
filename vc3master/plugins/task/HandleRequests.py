@@ -412,7 +412,8 @@ class HandleRequests(VC3Task):
             nodeset = self.client.getNodeset(nodeset_name)
             if not nodeset:
                 raise VC3InvalidRequest("Nodeset '%s' has not been declared." % nodeset_name, request = request)
-            total_jobs += int(nodeset.node_number)
+            if nodeset.node_number is not None:
+                total_jobs += nodeset.node_number
 
         return total_jobs
 
