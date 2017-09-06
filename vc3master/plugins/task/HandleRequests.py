@@ -75,18 +75,17 @@ class HandleRequests(VC3Task):
             request.state_reason = reason
 
         if next_state is not request.state:
-            try:
-                self.log.debug("request '%s'  state '%s' -> %s'", request.name, request.state, next_state)
-                request.state = next_state
+            self.log.debug("request '%s'  state '%s' -> %s'", request.name, request.state, next_state)
+            request.state = next_state
 
-                self.add_queues_conf(request) 
-                self.add_auth_conf(request)
+        try:
+            self.add_queues_conf(request) 
+            self.add_auth_conf(request)
+            self.client.storeRequest(request)
 
-                self.client.storeRequest(request)
-
-            except Exception, e:
-                self.log.warning("Storing the new request state failed.")
-                raise e
+        except Exception, e:
+            self.log.warning("Storing the new request state failed.")
+            raise e
 
     def is_finishing_state(self, state):
         return state in ['terminating', 'cleanup', 'terminated']
