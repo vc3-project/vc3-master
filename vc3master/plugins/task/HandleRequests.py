@@ -336,7 +336,7 @@ class HandleRequests(VC3Task):
         if nodeset.environment is not None:
             environment = self.client.getEnvironment(nodeset.environment)
             if environment is None:
-                raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (environment.name, section_name), request = request)
+                raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (nodeset.environment, section_name), request = request)
 
             config.set(section_name, 'vc3.environment', environment.name)
 
