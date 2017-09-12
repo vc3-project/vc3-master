@@ -316,7 +316,7 @@ class HandleRequests(VC3Task):
 
         s = ''
         if nodeset.app_type == 'htcondor':
-            collector = 'condor.virtualclusters.org'
+            collector = 'condor-dev.virtualclusters.org'
             s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
             s += ' -- vc3-glidein -c %s -C %s -p \\${VC3_CONDOR_PASSWORD_FILE:-mycondorpassword}' % (collector, collector)
