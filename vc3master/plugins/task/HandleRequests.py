@@ -342,7 +342,7 @@ class HandleRequests(VC3Task):
 
             config.set(section_name, 'vc3.environment', environment.name)
 
-            vs    = [ "VC3_REQUESTID='%s'" % request.name, "VC3_QUEUE='%s'" % section_name]
+            vs    = [ "VC3_REQUESTID=%s" % request.name, "VC3_QUEUE=%s" % section_name]
             for k in environment.envmap:
                 vs.append("%s=%s" % (k, environment.envmap[k]))
 
