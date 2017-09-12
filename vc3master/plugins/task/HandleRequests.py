@@ -144,11 +144,12 @@ class HandleRequests(VC3Task):
     def state_terminating(self, request):
         self.log.debug('request %s is terminating' % request.name)
         running = self.job_count_with_state(request, 'running')
+        idle    = self.job_count_with_state(request, 'idle')
 
-        if running is None:
+        if (running is None) or (idle is None):
             self.log.warning('Failure: status of request %s went away.' % request.name)
             return ('cleanup', 'Failure: status of request %s went away.' % request.name)
-        elif running == 0:
+        elif (running + idle) == 0:
             return ('cleanup', 'Factory finished draining the request.')
         else:
             return ('terminating', None)
