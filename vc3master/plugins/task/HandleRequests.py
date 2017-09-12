@@ -319,7 +319,7 @@ class HandleRequests(VC3Task):
             collector = 'condor-dev.virtualclusters.org'
             s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
-            s += ' -- vc3-glidein -c %s -C %s -p \\${VC3_CONDOR_PASSWORD_FILE:-mycondorpassword}' % (collector, collector)
+            s += ' -- vc3-glidein -c %s -C %s -p mycondorpassword' % (collector, collector)
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
             s += ' -- work_queue_worker -M %s -t 900' % (request.name,)
@@ -330,7 +330,8 @@ class HandleRequests(VC3Task):
 
 
     def add_environment_to_queuesconf(self, config, request, section_name, nodeset):
-        s  = " --revar 'VC3_.*'"
+        #s  = " --revar 'VC3_.*'"
+        s  = ' '
         s += ' --home=.'
         s += ' --install=.'
 
