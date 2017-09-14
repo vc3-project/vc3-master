@@ -144,11 +144,12 @@ class HandleRequests(VC3Task):
     def state_terminating(self, request):
         self.log.debug('request %s is terminating' % request.name)
         running = self.job_count_with_state(request, 'running')
+        idle    = self.job_count_with_state(request, 'idle')
 
-        if running is None:
+        if (running is None) or (idle is None):
             self.log.warning('Failure: status of request %s went away.' % request.name)
             return ('cleanup', 'Failure: status of request %s went away.' % request.name)
-        elif running == 0:
+        elif (running + idle) == 0:
             return ('cleanup', 'Factory finished draining the request.')
         else:
             return ('terminating', None)
@@ -232,17 +233,16 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorssh.port',  str(resource.accessport))
             config.set(section_name, 'batchsubmit.condorssh.authprofile', allocation.name)
             config.set(section_name, 'executable',          '       %(builder)s')
-            if nodeset.environment:
-                self.add_environment_to_queuesconf(config, request, section_name, nodeset.environment)
         elif resource.accesstype == 'cloud':
             config.set(section_name, 'batchsubmitplugin',          'CondorEC2')
         elif resource.accesstype == 'local':
             config.set(section_name, 'batchsubmitplugin',          'CondorLocal')
+            config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.should_transfer_files', 'YES')
             config.set(section_name, 'executable',                 '%(builder)s')
-            if nodeset.environment:
-                self.add_environment_to_queuesconf(config, request, section_name, nodeset.environment)
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
+
+        self.add_environment_to_queuesconf(config, request, section_name, nodeset)
 
         self.log.debug("Completed filling in config for allocation %s" % allocation.name)
 
@@ -312,34 +312,52 @@ class HandleRequests(VC3Task):
             raise VC3InvalidRequest("Unknown resource access method '%s'" % str(resource.accessmethod), request = request)
 
 
-    def add_environment_to_queuesconf(self, config, request, section_name, environment_name):
-        if environment_name is None:
-            return
+    def add_pilot_to_queuesconf(self, config, request, section_name, nodeset):
 
-        environment = self.client.getEnvironment(environment_name)
-        if environment is None:
-            raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (environment_name, section_name), request = request)
+        s = ''
+        if nodeset.app_type == 'htcondor':
+            collector = 'condor-dev.virtualclusters.org'
+            s += ' --sys python:2.7=/usr'
+            s += ' --require vc3-glidein'
+            s += ' -- vc3-glidein -c %s -C %s -p mycondorpassword' % (collector, collector)
+        elif nodeset.app_type == 'workqueue':
+            s += ' --require cctools-statics'
+            s += ' -- work_queue_worker -M %s -t 900' % (request.name,)
+        else:
+            raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
 
-        config.set(section_name, 'vc3.environment', environment.name)
+        return s
 
-        if len(environment.packagelist) < 1:
-            self.log.warning("Environment '%s' did not define a package" % (environment.name))
-            return
 
-        vs    = [ "VC3_REQUESTID='%s'" % request.name, "VC3_QUEUE='%s'" % section_name]
-        for k in environment.envmap:
-            vs.append("%s=%s" % (k, environment.envmap[k]))
+    def add_environment_to_queuesconf(self, config, request, section_name, nodeset):
+        #s  = " --revar 'VC3_.*'"
+        s  = ' '
+        s += ' --home=.'
+        s += ' --install=.'
 
-        reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
-        vars  = ' '.join(['--var %s' % x for x in vs])
+        if nodeset.environment is not None:
+            environment = self.client.getEnvironment(nodeset.environment)
+            if environment is None:
+                raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (nodeset.environment, section_name), request = request)
 
-        s  = vars + ' ' + reqs
+            config.set(section_name, 'vc3.environment', environment.name)
 
-        if environment.builder_extra_args:
-            s += ' ' + ' '.join(environment.builder_extra_args)
+            vs    = [ "VC3_REQUESTID=%s" % request.name, "VC3_QUEUE=%s" % section_name]
+            for k in environment.envmap:
+                vs.append("%s=%s" % (k, environment.envmap[k]))
 
-        if environment.command:
-            s += ' -- ' + environment.command
+            reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
+            vars  = ' '.join(['--var %s' % x for x in vs])
+
+            s += ' ' + vars + ' ' + reqs
+
+            if environment.builder_extra_args:
+                s += ' ' + ' '.join(environment.builder_extra_args)
+
+            if environment.command:
+                self.log.warning('Ignoring command of environment %s for %s. Adding pilot for %s instead' % (environment.name, section_name, nodeset.name))
+
+        s += ' ' + self.add_pilot_to_queuesconf(config, request, section_name, nodeset)
 
         config.set(section_name, 'executable.arguments', s)
 
