@@ -6,6 +6,7 @@ from base64 import b64encode
 
 import os
 import json
+import math
 
 from vc3master.task import VC3Task
 
@@ -214,7 +215,7 @@ class HandleRequests(VC3Task):
             self.add_nodeset_to_queuesconf(config, request, resource, allocation, cluster, nodeset)
 
     def add_nodeset_to_queuesconf(self, config, request, resource, allocation, cluster, nodeset):
-        node_number  = self.jobs_to_run_by_policy(request, nodeset)
+        node_number  = self.jobs_to_run_by_policy(request, allocation, nodeset)
         section_name = request.name + '.' + nodeset.name + '.' + allocation.name
 
         self.log.debug("Information finalized for queues configuration section [%s]. Creating config." % section_name)
@@ -245,8 +246,7 @@ class HandleRequests(VC3Task):
         self.log.debug("Completed filling in config for allocation %s" % allocation.name)
 
 
-    def jobs_to_run_by_policy(self, request, nodeset):
-        # For now no policies. Just calculated static-balanced 
+    def jobs_to_run_by_policy(self, request, allocation, nodeset):
         self.log.debug("Calculating nodes to run...")
         node_number = 0
 
@@ -254,10 +254,25 @@ class HandleRequests(VC3Task):
             node_number = 0
             self.log.debug("Request in finishing state. Setting keepnrunning to 0")
         else:
-            numalloc = len(request.allocations)
-            total_to_run = int(nodeset.node_number)
-            node_number = total_to_run / numalloc
-            self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numalloc, total_to_run, node_number))
+            # For now no policies. Just calculated static-balanced 
+            node_number = self.jobs_to_run_by_static_balanced(request, allocation, nodeset)
+        return node_number
+    
+    def jobs_to_run_by_static_balanced(self, request, allocation, nodeset):
+        numalloc     = len(request.allocations)
+        total_to_run = nodeset.node_number
+        raw          = int(math.floor(float(total_to_run) / numalloc))
+        total_raw    = raw * numalloc
+
+        # since using floor, it is always the case that total_raw <= total_to_run
+        # we compensate for any difference in the allocation last in the list
+        node_number = raw
+        diff        = total_to_run - total_raw
+
+        if allocation.name == request.allocations[-1]:
+            node_number += diff
+
+        self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numalloc, total_to_run, node_number))
         return node_number
 
     def generate_auth_tokens(self, principle):
