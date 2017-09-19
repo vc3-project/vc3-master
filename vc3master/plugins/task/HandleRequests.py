@@ -235,6 +235,7 @@ class HandleRequests(VC3Task):
         elif resource.accesstype == 'local':
             config.set(section_name, 'batchsubmitplugin',          'CondorLocal')
             config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.should_transfer_files', 'YES')
+            config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.initialdir', '$ENV(TMP)')
             config.set(section_name, 'executable',                 '%(builder)s')
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
