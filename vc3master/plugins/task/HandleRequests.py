@@ -47,13 +47,12 @@ class HandleRequests(VC3Task):
             (next_state, reason) = self.state_validated(request)
 
         if request.state == 'pending':
-            # nexts: pending, growing, running, terminating
-            # to growing until at least one element of the request is fulfilled
+            # nexts: pending, running, terminating
             (next_state, reason) = self.state_pending(request)
 
-        if request.state in ['growing', 'running', 'shrinking']:
-            # nexts: growing, shrinking, running, terminating
-            (next_state, reason) = self.state_active_states(request)
+        if request.state == 'running':
+            # nexts: running, terminating
+            (next_state, reason) = self.state_running(request)
 
         if request.state == 'terminating':
             # waits until everything has been cleanup
@@ -71,13 +70,10 @@ class HandleRequests(VC3Task):
             if not self.is_finishing_state(next_state):
                 (next_state, reason) = ('terminating', 'received terminate action')
 
-        if reason:
-            request.state_reason = reason
-
-        if next_state is not request.state:
-            self.log.debug("request '%s'  state '%s' -> %s'", request.name, request.state, next_state)
+        if next_state is not request.state or request.state_reason is not reason:
+            self.log.debug("request '%s'  state '%s' -> %s (%s)'", request.name, request.state, next_state, str(reason))
             request.state = next_state
-
+            request.state_reason = reason
         try:
             self.add_queues_conf(request) 
             self.add_auth_conf(request)
@@ -122,12 +118,12 @@ class HandleRequests(VC3Task):
             self.log.warning('Failure: status of request %s went away.' % request.name)
             return ('terminating', 'Failure: status of request %s went away.' % request.name)
         elif running > 0:
-            return ('growing', 'factory started fulfilling request %s.' % request.name)
+            return ('running', 'factory started fulfilling request %s.' % request.name)
         else:
             return ('pending', 'Waiting for factory to start filling the request.')
 
 
-    def state_active_states(self, request):
+    def state_running(self, request):
         total_of_nodes = self.total_jobs_requested(request)
         running        = self.job_count_with_state(request, 'running')
 
@@ -135,11 +131,11 @@ class HandleRequests(VC3Task):
             self.log.warning('Failure: status of request %s went away.' % request.name)
             return ('terminating', 'Failure: status of request %s went away.' % request.name)
         elif total_of_nodes > running:
-            return ('growing', 'Factory is fulfilling the request.')
+            return ('running', 'growing. waiting on %d more jobs' % (total_of_nodes - running))
         elif total_of_nodes < running:
-            return ('shrinking', 'Factory is draining jobs.')
+            return ('running', 'removing %d extra jobs.' % (running - total_of_nodes))
         else:
-            return ('running', 'Factory completely fulfilled the request')
+            return ('running', 'all requested jobs are running.')
 
     def state_terminating(self, request):
         self.log.debug('request %s is terminating' % request.name)
