@@ -162,6 +162,16 @@ John Hover <jhover@bnl.gov>
                           action="store_const", 
                           const=logging.WARNING, 
                           help="Set logging level to WARNING [default]")
+        parser.add_option("--maxlogsize", dest="maxlogsize",
+                          default=4096,
+                          action="store",
+                          type="int",
+                          help="Max log size, in MB.")
+        parser.add_option("--logrotations", dest="logrotations",
+                          default=2,
+                          action="store",
+                          type="int",
+                          help="Number of log backups to keep.")
 
         default_conf = "/etc/vc3/vc3-master.conf"
         if 'VC3_SERVICES_HOME' in os.environ:
@@ -211,7 +221,8 @@ John Hover <jhover@bnl.gov>
             runuid = pwd.getpwnam(self.options.runAs).pw_uid
             rungid = pwd.getpwnam(self.options.runAs).pw_gid                  
             os.chown(logdir, runuid, rungid)
-            logStream = logging.FileHandler(filename=lf)    
+            #logStream = logging.FileHandler(filename=lf)
+            logStream = logging.handlers.RotatingFileHandler(filename=lf, maxBytes=1024 * 1024 * self.options.maxlogsize, backupCount=self.options.logrotations)
 
         # Check python version 
         major, minor, release, st, num = sys.version_info
