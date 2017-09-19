@@ -75,7 +75,7 @@ class HandleRequests(VC3Task):
             request.state = next_state
             request.state_reason = reason
             try:
-                self.add_queues_conf(request) 
+                self.add_queues_conf(request)
                 self.add_auth_conf(request)
                 self.client.storeRequest(request)
             except Exception, e:
