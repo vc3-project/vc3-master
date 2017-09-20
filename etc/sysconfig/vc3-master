@@ -22,7 +22,7 @@
 
 # Options for RPM
 LOGFILE=/var/log/vc3/master.log
-OPTIONS="-d --log=/var/log/vc3/master.log"
+OPTIONS="--runas=vc3 --conf=/etc/vc3/vc3-master.conf --log=/var/log/vc3/master.log"
 CONSOLE_LOG=/var/log/vc3/master-console.log
 
 # Options for HOME
