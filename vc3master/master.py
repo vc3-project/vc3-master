@@ -175,7 +175,9 @@ John Hover <jhover@bnl.gov>
 
         default_conf = "/etc/vc3/vc3-master.conf"
         if 'VC3_SERVICES_HOME' in os.environ:
-            default_conf = os.path.join(os.environ['VC3_SERVICES_HOME'], 'etc', 'vc3-master.conf') + ',' + default_conf
+            # if running inside the builder...
+            default_conf = ','.join([default_conf, os.path.expanduser('~/vc3-services/etc/vc3-master.conf'), os.path.expanduser('~/vc3-services/etc/vc3-master-local.conf')])
+
         parser.add_option("--conf", dest="confFiles", 
                           default=default_conf,
                           action="store", 
