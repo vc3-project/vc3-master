@@ -9,6 +9,7 @@ import json
 import math
 
 from vc3master.task import VC3Task
+from vc3infoservice.infoclient import InfoConnectionFailure
 
 import pluginmanager as pm
 
@@ -26,12 +27,16 @@ class HandleRequests(VC3Task):
     def runtask(self):
         self.log.info("Running task %s" % self.section)
         self.log.debug("Polling master....")
-        requests = self.client.listRequests()
-        n = len(requests) if requests else 0
-        self.log.debug("Processing %d requests" % n)
-        if requests:
-            for r in requests:
-                self.process_request(r)
+
+        try:
+            requests = self.client.listRequests()
+            n = len(requests) if requests else 0
+            self.log.debug("Processing %d requests" % n)
+            if requests:
+                for r in requests:
+                    self.process_request(r)
+        except InfoConnectionFailure, e:
+            self.log.warning("Could not read requests from infoservice. (%s)", e)
 
     def process_request(self, request):
         next_state  = None
@@ -335,7 +340,7 @@ class HandleRequests(VC3Task):
             s += ' -- vc3-glidein -c %s -C %s -p mycondorpassword' % (collector, collector)
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
-            s += ' -- work_queue_worker -M %s -t 900' % (request.name,)
+            s += ' -- work_queue_worker -M %s -t 1800' % (request.name,)
         else:
             raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
 

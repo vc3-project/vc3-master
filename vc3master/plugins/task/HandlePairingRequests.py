@@ -4,7 +4,7 @@
 import json
 
 from vc3master.task import VC3Task
-from vc3infoservice.infoclient import Pairing
+from vc3infoservice.infoclient import Pairing, InfoConnectionFailure
 
 class HandlePairingRequests(VC3Task):
     '''
@@ -37,10 +37,10 @@ class HandlePairingRequests(VC3Task):
                     ekeystr = self.ic.encode(keystr)
                     ds['pairing'][poname]['cert'] = ecertstr
                     ds['pairing'][poname]['key'] = ekeystr  
-                    
             jd = json.dumps(ds)
             self.ic.storedocument('pairing',jd)
-
+        except InfoConnectionFailure, e:
+            self.log.warning("Could not read pairing requests from infoservice. (%s)", e)
         except KeyError:
         # no pairing section
             self.log.debug("No pairing section in doc.")

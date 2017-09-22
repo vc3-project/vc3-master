@@ -9,6 +9,7 @@ import json
 import traceback
 
 from vc3master.task import VC3Task
+from vc3infoservice.infoclient import InfoConnectionFailure
 
 import pluginmanager as pm
 
@@ -25,12 +26,16 @@ class HandleAllocations(VC3Task):
     def runtask(self):
         self.log.info("Running task %s" % self.section)
         self.log.debug("Polling master....")
-        allocations = self.client.listAllocations()
-        n = len(allocations) if allocations else 0
-        self.log.debug("Processing %d allocations" % n)
-        if allocations:
-            for a in allocations:
-                self.process_allocation(a)
+
+        try:
+            allocations = self.client.listAllocations()
+            n = len(allocations) if allocations else 0
+            self.log.debug("Processing %d allocations" % n)
+            if allocations:
+                for a in allocations:
+                    self.process_allocation(a)
+        except InfoConnectionFailure, e:
+            self.log.warning("Could not read allocations from infoservice. (%s)", e)
     
     def process_allocation(self, allocation):
         next_state  = None
