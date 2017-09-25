@@ -4,7 +4,8 @@ Description=VC3 Master
 [Service]
 User=vc3
 EnvironmentFile=-/etc/sysconfig/vc3-master
-ExecStart=/usr/bin/vc3-master --conf /etc/vc3/vc3-master.conf $OPTIONS
+# OPTIONS IS NOT BEING SET, SO FOR NOW WE EXPLICITELY SET THE ARGUMENTS (e.g. --runas, --conf and --log)
+ExecStart=/usr/bin/vc3-master $OPTIONS --runas=vc3 --conf=/etc/vc3/vc3-master.conf --log=/var/log/vc3/master.log
 Restart=on-failure
 
 [Install]

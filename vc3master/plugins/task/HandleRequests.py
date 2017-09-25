@@ -6,8 +6,10 @@ from base64 import b64encode
 
 import os
 import json
+import math
 
 from vc3master.task import VC3Task
+from vc3infoservice.infoclient import InfoConnectionFailure
 
 import pluginmanager as pm
 
@@ -25,12 +27,16 @@ class HandleRequests(VC3Task):
     def runtask(self):
         self.log.info("Running task %s" % self.section)
         self.log.debug("Polling master....")
-        requests = self.client.listRequests()
-        n = len(requests) if requests else 0
-        self.log.debug("Processing %d requests" % n)
-        if requests:
-            for r in requests:
-                self.process_request(r)
+
+        try:
+            requests = self.client.listRequests()
+            n = len(requests) if requests else 0
+            self.log.debug("Processing %d requests" % n)
+            if requests:
+                for r in requests:
+                    self.process_request(r)
+        except InfoConnectionFailure, e:
+            self.log.warning("Could not read requests from infoservice. (%s)", e)
 
     def process_request(self, request):
         next_state  = None
@@ -47,13 +53,12 @@ class HandleRequests(VC3Task):
             (next_state, reason) = self.state_validated(request)
 
         if request.state == 'pending':
-            # nexts: pending, growing, running, terminating
-            # to growing until at least one element of the request is fulfilled
+            # nexts: pending, running, terminating
             (next_state, reason) = self.state_pending(request)
 
-        if request.state in ['growing', 'running', 'shrinking']:
-            # nexts: growing, shrinking, running, terminating
-            (next_state, reason) = self.state_active_states(request)
+        if request.state == 'running':
+            # nexts: running, terminating
+            (next_state, reason) = self.state_running(request)
 
         if request.state == 'terminating':
             # waits until everything has been cleanup
@@ -71,21 +76,19 @@ class HandleRequests(VC3Task):
             if not self.is_finishing_state(next_state):
                 (next_state, reason) = ('terminating', 'received terminate action')
 
-        if reason:
-            request.state_reason = reason
-
-        if next_state is not request.state:
-            self.log.debug("request '%s'  state '%s' -> %s'", request.name, request.state, next_state)
+        if next_state is not request.state or reason is not request.state_reason:
+            self.log.debug("request '%s'  state '%s' -> %s (%s)'", request.name, request.state, next_state, str(reason))
             request.state = next_state
-
-        try:
-            self.add_queues_conf(request) 
-            self.add_auth_conf(request)
-            self.client.storeRequest(request)
-
-        except Exception, e:
-            self.log.warning("Storing the new request state failed.")
-            raise e
+            request.state_reason = reason
+            try:
+                self.add_queues_conf(request)
+                self.add_auth_conf(request)
+                self.client.storeRequest(request)
+            except Exception, e:
+                self.log.warning("Storing the new request state failed.")
+                raise e
+        else:
+            self.log.debug("request '%s' remained in state '%s'", request.name, request.state)
 
     def is_finishing_state(self, state):
         return state in ['terminating', 'cleanup', 'terminated']
@@ -122,12 +125,12 @@ class HandleRequests(VC3Task):
             self.log.warning('Failure: status of request %s went away.' % request.name)
             return ('terminating', 'Failure: status of request %s went away.' % request.name)
         elif running > 0:
-            return ('growing', 'factory started fulfilling request %s.' % request.name)
+            return ('running', 'factory started fulfilling request %s.' % request.name)
         else:
             return ('pending', 'Waiting for factory to start filling the request.')
 
 
-    def state_active_states(self, request):
+    def state_running(self, request):
         total_of_nodes = self.total_jobs_requested(request)
         running        = self.job_count_with_state(request, 'running')
 
@@ -135,11 +138,11 @@ class HandleRequests(VC3Task):
             self.log.warning('Failure: status of request %s went away.' % request.name)
             return ('terminating', 'Failure: status of request %s went away.' % request.name)
         elif total_of_nodes > running:
-            return ('growing', 'Factory is fulfilling the request.')
+            return ('running', 'growing. waiting on %d more jobs' % (total_of_nodes - running))
         elif total_of_nodes < running:
-            return ('shrinking', 'Factory is draining jobs.')
+            return ('running', 'removing %d extra jobs.' % (running - total_of_nodes))
         else:
-            return ('running', 'Factory completely fulfilled the request')
+            return ('running', 'all requested jobs are running.')
 
     def state_terminating(self, request):
         self.log.debug('request %s is terminating' % request.name)
@@ -217,7 +220,7 @@ class HandleRequests(VC3Task):
             self.add_nodeset_to_queuesconf(config, request, resource, allocation, cluster, nodeset)
 
     def add_nodeset_to_queuesconf(self, config, request, resource, allocation, cluster, nodeset):
-        node_number  = self.jobs_to_run_by_policy(request, nodeset)
+        node_number  = self.jobs_to_run_by_policy(request, allocation, nodeset)
         section_name = request.name + '.' + nodeset.name + '.' + allocation.name
 
         self.log.debug("Information finalized for queues configuration section [%s]. Creating config." % section_name)
@@ -238,6 +241,7 @@ class HandleRequests(VC3Task):
         elif resource.accesstype == 'local':
             config.set(section_name, 'batchsubmitplugin',          'CondorLocal')
             config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.should_transfer_files', 'YES')
+            config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.initialdir', '$ENV(TMP)')
             config.set(section_name, 'executable',                 '%(builder)s')
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
@@ -247,8 +251,7 @@ class HandleRequests(VC3Task):
         self.log.debug("Completed filling in config for allocation %s" % allocation.name)
 
 
-    def jobs_to_run_by_policy(self, request, nodeset):
-        # For now no policies. Just calculated static-balanced 
+    def jobs_to_run_by_policy(self, request, allocation, nodeset):
         self.log.debug("Calculating nodes to run...")
         node_number = 0
 
@@ -256,10 +259,25 @@ class HandleRequests(VC3Task):
             node_number = 0
             self.log.debug("Request in finishing state. Setting keepnrunning to 0")
         else:
-            numalloc = len(request.allocations)
-            total_to_run = int(nodeset.node_number)
-            node_number = total_to_run / numalloc
-            self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numalloc, total_to_run, node_number))
+            # For now no policies. Just calculated static-balanced 
+            node_number = self.jobs_to_run_by_static_balanced(request, allocation, nodeset)
+        return node_number
+    
+    def jobs_to_run_by_static_balanced(self, request, allocation, nodeset):
+        numalloc     = len(request.allocations)
+        total_to_run = nodeset.node_number
+        raw          = int(math.floor(float(total_to_run) / numalloc))
+        total_raw    = raw * numalloc
+
+        # since using floor, it is always the case that total_raw <= total_to_run
+        # we compensate for any difference in the allocation last in the list
+        node_number = raw
+        diff        = total_to_run - total_raw
+
+        if allocation.name == request.allocations[-1]:
+            node_number += diff
+
+        self.log.debug("With %d allocations and nodeset.node_number %d this allocation should run %d" % (numalloc, total_to_run, node_number))
         return node_number
 
     def generate_auth_tokens(self, principle):
@@ -322,7 +340,7 @@ class HandleRequests(VC3Task):
             s += ' -- vc3-glidein -c %s -C %s -p mycondorpassword' % (collector, collector)
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
-            s += ' -- work_queue_worker -M %s -t 900' % (request.name,)
+            s += ' -- work_queue_worker -M %s -t 1800' % (request.name,)
         else:
             raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
 

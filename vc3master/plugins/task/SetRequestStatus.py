@@ -8,6 +8,8 @@ import os
 import json
 
 from vc3master.task import VC3Task
+from vc3infoservice.infoclient import InfoConnectionFailure
+
 import pluginmanager as pm
 
 
@@ -35,12 +37,17 @@ class SetRequestStatus(VC3Task):
         '''
         self.log.info("Running task %s" % self.section)
         self.log.debug("Polling master....")
-        request_l = self.client.listRequests()
-        n = len(request_l) if request_l else 0
-        self.log.debug("Processing %d requests" % n)
-        if request_l:
-            for request in request_l:
-                self.process_request(request)
+
+
+        try:
+            request_l = self.client.listRequests()
+            n = len(request_l) if request_l else 0
+            self.log.debug("Processing %d requests" % n)
+            if request_l:
+                for request in request_l:
+                    self.process_request(request)
+        except InfoConnectionFailure, e:
+            self.log.warning("Could not read requests from infoservice. (%s)", e)
 
     def process_request(self, request):
         '''
