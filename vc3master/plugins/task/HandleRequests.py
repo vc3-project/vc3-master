@@ -12,6 +12,7 @@ from vc3master.task import VC3Task
 from vc3infoservice.infoclient import InfoConnectionFailure
 
 import pluginmanager as pm
+import traceback
 
 class HandleRequests(VC3Task):
     '''
@@ -34,7 +35,13 @@ class HandleRequests(VC3Task):
             self.log.debug("Processing %d requests" % n)
             if requests:
                 for r in requests:
-                    self.process_request(r)
+                    try:
+                        self.process_request(r)
+                    except VC3InvalidRequest, e:
+                        self.log.warning("Request %s is not valid. (%s)", request.name, e)
+                    except Exception, e:
+                        self.log.warning("Request %s had a exception (%s)", request.name, e)
+                        self.log.debug(traceback.format_exc(None))
         except InfoConnectionFailure, e:
             self.log.warning("Could not read requests from infoservice. (%s)", e)
 
@@ -93,8 +100,7 @@ class HandleRequests(VC3Task):
             self.add_auth_conf(request)
             self.client.storeRequest(request)
         except Exception, e:
-            self.log.warning("Storing the new request state failed.")
-            raise e
+            self.log.warning("Storing the new request state failed. (%s)", e)
 
     def is_finishing_state(self, state):
         return state in ['terminating', 'cleanup', 'terminated']
