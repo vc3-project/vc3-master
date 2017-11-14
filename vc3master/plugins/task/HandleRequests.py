@@ -105,6 +105,7 @@ class HandleRequests(VC3Task):
             self.client.storeRequest(request)
         except Exception, e:
             self.log.warning("Storing the new request state failed. (%s)", e)
+            self.log.warning(traceback.format_exc(None))
 
     def is_finishing_state(self, state):
         return state in ['terminating', 'cleanup', 'terminated']
@@ -285,7 +286,7 @@ class HandleRequests(VC3Task):
     
     def jobs_to_run_by_static_balanced(self, request, allocation, nodeset):
         numalloc     = len(request.allocations)
-        total_to_run = request.statusinfo[nodeset.name]['requested']
+        total_to_run = self.total_jobs_requested(request)
         raw          = int(math.floor(float(total_to_run) / numalloc))
         total_raw    = raw * numalloc
 
@@ -423,9 +424,6 @@ class HandleRequests(VC3Task):
     def total_jobs_requested(self, request):
         if self.is_finishing_state(request.state):
             return 0
-
-        if not request.statusinfo:
-            raise Exception("request.statusinfo not available. This should not ever happen...")
 
         cluster = self.client.getCluster(request.cluster)
 
