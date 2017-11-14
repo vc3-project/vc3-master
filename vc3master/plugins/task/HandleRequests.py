@@ -65,12 +65,12 @@ class HandleRequests(VC3Task):
             (next_state, reason) = self.state_new(request)
 
         if  next_state == 'validated':
-            # nexts: validated, initializing, terminating
+            # nexts: validated, initialized, terminating
             (next_state, reason) = self.state_validated(request)
 
-        if  next_state == 'initializing':
-            # nexts: initializing, pending, terminating
-            (next_state, reason) = self.state_initializing(request)
+        if  next_state == 'initialized':
+            # nexts: initialized, pending, terminating
+            (next_state, reason) = self.state_initialized(request)
 
         if next_state == 'pending':
             # nexts: pending, running, terminating
@@ -124,30 +124,32 @@ class HandleRequests(VC3Task):
         return ('terminated', 'Invalid request: %s' % e.reason)
 
     def state_validated(self, request):
+        self.log.debug('waiting for headnode to come online for %s' % request.name)
+
+        # set headnode manually for now...
+        request.headnode = 'condor-dev.virtualclusters.org'
+
+        if request.headnode is None:
+            # ip of headnode is still not known, so it's not ready
+            return ('validated', None)
+        else:
+            # ip is known, workers can be created now
+            return ('initialized', 'Waiting for factory to start filling the request.')
+
+
+    def state_initialized(self, request):
         self.log.debug('waiting for factory to configure %s' % request.name)
 
         running = self.job_count_with_state(request, 'running')
         idle    = self.job_count_with_state(request, 'idle')
 
         if (running is None) or (idle is None) or (idle + running == 0):
-            # factory has not reported any jobs, so we remain in the validated state. 
-            return ('validated', None)
+            # factory has not reported any jobs, so we remain in the initialized state. 
+            return ('initialized', None)
         else:
             # factory updated the status of the queue, so we know the request is configured.
-            return ('initializing', None)
+            return ('pending', None)
 
-    def state_initializing(self, request):
-        self.log.debug('waiting for headnode to come online for %s' % request.name)
-
-        # set manually for now...
-        request.headnode = 'condor-dev.virtualclusters.org'
-
-        if request.headnode is None:
-            # ip of headnode is still not known
-            return ('initializing', None)
-        else:
-            # ip is known, workers can be created now
-            return ('pending', 'Waiting for factory to start filling the request.')
 
     def state_pending(self, request):
         self.log.debug('waiting for factory to start fulfilling request %s' % request.name)
