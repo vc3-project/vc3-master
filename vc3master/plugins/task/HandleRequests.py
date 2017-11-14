@@ -65,8 +65,12 @@ class HandleRequests(VC3Task):
             (next_state, reason) = self.state_new(request)
 
         if  next_state == 'validated':
-            # nexts: validated, pending, terminating
+            # nexts: validated, initializing, terminating
             (next_state, reason) = self.state_validated(request)
+
+        if  next_state == 'initializing':
+            # nexts: initializing, pending, terminating
+            (next_state, reason) = self.state_initializing(request)
 
         if next_state == 'pending':
             # nexts: pending, running, terminating
@@ -129,6 +133,19 @@ class HandleRequests(VC3Task):
             return ('validated', None)
         else:
             # factory updated the status of the queue, so we know the request is configured.
+            return ('initializing', None)
+
+    def state_initializing(self, request):
+        self.log.debug('waiting for headnode to come online for %s' % request.name)
+
+        # set manually for now...
+        request.headnode = 'condor-dev.virtualclusters.org'
+
+        if request.headnode is None:
+            # ip of headnode is still not known
+            return ('initializing', None)
+        else:
+            # ip is known, workers can be created now
             return ('pending', 'Waiting for factory to start filling the request.')
 
     def state_pending(self, request):
@@ -337,7 +354,7 @@ class HandleRequests(VC3Task):
 
         s = ''
         if nodeset.app_type == 'htcondor':
-            collector = 'condor-dev.virtualclusters.org'
+            collector = request.headnode
             s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
             s += ' -- vc3-glidein -c %s -C %s -p mycondorpassword' % (collector, collector)
