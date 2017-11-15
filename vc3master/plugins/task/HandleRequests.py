@@ -38,9 +38,9 @@ class HandleRequests(VC3Task):
                     try:
                         self.process_request(r)
                     except VC3InvalidRequest, e:
-                        self.log.warning("Request %s is not valid. (%s)", request.name, e)
+                        self.log.warning("Request %s is not valid. (%s)", r.name, e)
                     except Exception, e:
-                        self.log.warning("Request %s had a exception (%s)", request.name, e)
+                        self.log.warning("Request %s had a exception (%s)", r.name, e)
                         self.log.debug(traceback.format_exc(None))
         except InfoConnectionFailure, e:
             self.log.warning("Could not read requests from infoservice. (%s)", e)
@@ -126,7 +126,7 @@ class HandleRequests(VC3Task):
     def state_validated(self, request):
         self.log.debug('waiting for headnode to come online for %s' % request.name)
 
-        # set headnode manually for now...
+        # set headnode manually:
         request.headnode = 'condor-dev.virtualclusters.org'
 
         if request.headnode is None:
@@ -199,6 +199,8 @@ class HandleRequests(VC3Task):
         # to fill cleanup here!
         if self.is_everything_cleaned_up(request):
             return ('terminated', 'Garbage collected')
+
+        return ('cleanup', 'Waiting for headnode/others to terminate')
 
 
     def add_queues_conf(self, request, nodesets):
@@ -403,6 +405,13 @@ class HandleRequests(VC3Task):
         config.set(section_name, 'executable.arguments', s)
 
     def is_everything_cleaned_up(self, request):
+        # here we want to check the state of the headnode
+        # for now, set manually...
+        request.headnode = None
+
+        if request.headnode is not None:
+            return False
+
         ''' TO BE FILLED '''
         return True
 
