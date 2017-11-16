@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 
-import ConfigParser
-import StringIO
-from base64 import b64encode
 
 from vc3master.task import VC3Task
 from vc3infoservice.infoclient import InfoConnectionFailure
 
+from base64 import b64encode
 import pluginmanager as pm
 import traceback
 
+import os
 import re
+import subprocess
+
 from novaclient import client as novaclient
 
 class HandleHeadNodes(VC3Task):
@@ -22,26 +23,32 @@ class HandleHeadNodes(VC3Task):
     def __init__(self, parent, config, section):
         super(HandleHeadNodes, self).__init__(parent, config, section)
         self.client = parent.client
+        self.config = config
 
-        self.openstack_username = 'secret'
-        self.openstack_password = 'secret'
-        self.openstack_user_domain_name    = 'default'
-        self.openstack_project_domain_name = 'default'
-        self.openstack_auth_url = 'http://10.32.70.9:5000/v3'
+        nova_conf = {
+                'version' : '2.0',
+                'username' : self.config.get(section, 'username'),
+                'password' : self.config.get(section, 'password'),
+                'user_domain_name' : self.config.get(section, 'user_domain_name'),
+                'project_domain_name' : self.config.get(section, 'project_domain_name'),
+                'auth_url' : self.config.get(section, 'auth_url'),
+                }
 
-        self.nova = novaclient.Client(
-                version             = '2.0',
-                username            = self.openstack_username,
-                password            = self.openstack_password,
-                user_domain_name    = self.openstack_user_domain_name,
-                project_domain_name = self.openstack_project_domain_name,
-                auth_url            = self.openstack_auth_url)
+        self.nova = novaclient.Client( **nova_conf );
 
-        self.node_image           = '26b176c9-7219-4295-8bb0-a87ef200dca5'
-        self.node_flavor          = '15d4a4c3-3b97-409a-91b2-4bc1226382d3'
-        self.node_master_key_name = 'lancre-b'
-        self.node_security_groups = ['ssh', 'default']
-        self.node_network_name    = u'Campus - Private 1'
+        self.node_image            = self.config.get(section, 'node_image')
+        self.node_flavor           = self.config.get(section, 'node_flavor')
+        self.node_user             = self.config.get(section, 'node_user')
+        self.node_private_key_file = self.config.get(section, 'node_private_key_file')
+        self.node_public_key_name  = os.path.expanduser(self.config.get(section, 'node_public_key_name'))
+
+        self.ansible_path     = os.path.expanduser(self.config.get(section, 'ansible_path'))
+        self.ansible_playbook = self.config.get(section, 'ansible_playbook')
+
+        groups = self.config.get(section, 'node_security_groups')
+        self.node_security_groups = groups.split(',')
+
+        self.initializers = {}
 
         self.log.debug("HandleHeadNodes VC3Task initialized.")
 
@@ -72,15 +79,18 @@ class HandleHeadNodes(VC3Task):
         if request.state == 'cleanup':
             self.terminate_server(request)
         elif request.state == 'validated':
-            # other than cleanup, headnodes are only checked when the request has been validated.
-            # here we want to check the state of something like a headnode entity
-            if request.headnode is not None:
-                return
-            else:
+
+            if request.headnode is None:
                 self.create_server(request)
+            elif request.headnode['state'] == 'booting' and self.check_if_online(request):
+                self.initialize_server(request)
+            elif request.headnode['state'] == 'initializing':
+                self.check_if_done_init(request)
+            elif request.headnode['state'] == 'failure':
+                self.terminate_server(request)
+
         else:
             return
-
 
         try:
             self.client.storeRequest(request)
@@ -91,34 +101,62 @@ class HandleHeadNodes(VC3Task):
 
     def terminate_server(self, request):
         try:
+
+            if self.initializers[request.name]:
+                try:
+                    self.initializers[request.name].terminate()
+                except Exception, e:
+                    self.log.warning('Exception while killing initializer for %s: %s', request.name, e)
+
             server = self.nova.servers.find(name=request.name)
             self.log.debug('Teminating headnode at %s for request %s', request.headnode, request.name)
             server.delete()
+
         except Exception, e:
             self.log.warning('Could not find headnode for request %s (%s)', request.name, e)
 
-        # here we want to update the state of headnode entity or alike
-        request.headnode = None
+        request.headnode['state'] = 'terminated'
 
     def create_server(self, request):
+        request.headnode = {}
 
         server = self.boot_server(request)
         if not server:
+            request.headnode['state'] = 'failure'
             raise('Could not boot headnode for request %s', request.name)
 
-        if server.status != 'ACTIVE':
-            self.log.debug('Waiting for headnode for request %s to come online', request.name)
-            return
+        self.log.debug('Waiting for headnode for request %s to come online', request.name)
+        request.headnode['state'] = 'booting'
 
-        request.headnode = self.__get_ip(request, server)
-        if not request.headnode:
-            self.terminate_server(request)
-            raise('Could not get ip for headnode for request %s', request.name)
 
-        self.log.info('Headnode for %s running at %s', request.name, request.headnode)
+    def check_if_online(self, request):
+        ip = self.__get_ip(request)
 
-        self.initialize_server(request)
+        if not ip:
+            return False
 
+        try:
+            subprocess.call([
+                'ssh',
+                '-o',
+                'UserKnownHostsFile=/dev/null',
+                '-o',
+                'StrictHostKeyChecking=no',
+                '-o',
+                'ConnectTimeout=10'
+                '-i',
+                self.node_private_key_file,
+                '-l',
+                self.node_user,
+                ip,
+                '--',
+                '/bin/date'])
+
+            self.log.info('Headnode for %s running at %s', request.name, ip)
+
+            return True
+        except subprocess.CalledProcessError:
+            return False
 
     def boot_server(self, request):
         try:
@@ -129,20 +167,72 @@ class HandleHeadNodes(VC3Task):
             pass
 
         self.log.info('Booting new headnode at %s for request %s', request.headnode, request.name)
-        server = self.nova.servers.create(name = request.name, image = self.node_image, flavor = self.node_flavor, key_name = self.node_master_key_name, security_groups = self.node_security_groups)
+        server = self.nova.servers.create(name = request.name, image = self.node_image, flavor = self.node_flavor, key_name = self.node_public_key_name, security_groups = self.node_security_groups)
         return server
 
 
     def initialize_server(self, request):
-        self.log.info('Initializing new server at %s for request %s', request.headnode, request.name)
-        pass
 
-    def __get_ip(self, request, server):
+        # if we are already initializing this headnode
+        if self.initializers.has_key(request.name):
+            return
+
+        self.log.info('Initializing new server at %s for request %s', request.headnode, request.name)
+
+        request.headnode['state'] = 'initializing'
+        request.headnode['ip']    = self.__get_ip(request)
+
+        os.environ['ANSIBLE_HOST_KEY_CHECKING']='False'
+
+        pipe = subprocess.Popen(
+                ['ansible-playbook',
+                    self.ansible_playbook,
+                    '--extra-vars',
+                    'request_name=' + request.name,
+                    '--key-file',
+                    self.node_private_key_file,
+                    '--inventory',
+                    request.headnode['ip'] + ',',
+                    ],
+                cwd = self.ansible_path
+                )
+        self.initializers[request.name] = pipe
+
+    def check_if_done_init(self, request):
+
         try:
-            self.log.warning(server.networks.keys())
-            for ip in server.networks[self.node_network_name]:
-                if re.match('\d+\.\d+\.\d+\.\d+', ip):
-                    return ip
+            pipe = self.initializers[request.name]
+            pipe.poll()
+
+            if pipe.returncode is None:
+                return
+            if pipe.returncode == 0:
+                request.headnode['state'] = 'running'
+            else:
+                self.log.warning('Error when initializing headnode for request %s.', request.name)
+                request.headnode['state'] = 'failure'
+
+        except Exception, e:
+            self.log.warning('Error for headnode initializers for request %s (%s)', request.name, e)
+            request.headnode['state'] = 'failure'
+
+
+    def __get_ip(self, request):
+        try:
+            server = self.nova.servers.find(name=request.name)
+
+            if server.status != 'ACTIVE':
+                return None
+
+        except Exception, e:
+            self.log.warning('Could not find headnode for request %s (%s)', request.name, e)
+            raise e
+
+        try:
+            for network in server.networks.keys():
+                for ip in server.networks[network]:
+                    if re.match('\d+\.\d+\.\d+\.\d+', ip):
+                        return ip
         except Exception, e:
             self.log.warning("Could not find ip in network '%s' for request %s: %s", self.node_network_name, request.name, e)
             raise e
