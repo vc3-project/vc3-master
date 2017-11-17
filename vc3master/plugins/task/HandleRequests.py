@@ -127,14 +127,16 @@ class HandleRequests(VC3Task):
         self.log.debug('waiting for headnode to come online for %s' % request.name)
 
         # set headnode manually:
-        request.headnode = 'condor-dev.virtualclusters.org'
+        #request.headnode = { 'state' : 'running', 'ip' : 'condor-dev.virtualclusters.org' }
 
         if request.headnode is None:
-            # ip of headnode is still not known, so it's not ready
             return ('validated', None)
-        else:
-            # ip is known, workers can be created now
+        elif request.headnode['state'] == 'failure':
+            return ('cleanup', 'Failure when launching headnode')
+        elif request.headnode['state'] == 'running':
             return ('initialized', 'Waiting for factory to start filling the request.')
+        else:
+            return ('validated', None)
 
 
     def state_initialized(self, request):
@@ -359,7 +361,7 @@ class HandleRequests(VC3Task):
 
         s = ''
         if nodeset.app_type == 'htcondor':
-            collector = request.headnode
+            collector = request.headnode['ip']
             s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
             s += ' -- vc3-glidein -c %s -C %s -p mycondorpassword' % (collector, collector)
@@ -406,14 +408,11 @@ class HandleRequests(VC3Task):
 
     def is_everything_cleaned_up(self, request):
         # here we want to check the state of the headnode
-        # for now, set manually...
-        request.headnode = None
 
-        if request.headnode is not None:
-            return False
+        if request.headnode['state'] == 'terminated' or request.headnode['state'] == 'failure':
+            return True
 
-        ''' TO BE FILLED '''
-        return True
+        return False
 
     def job_count_with_state(self, request, state):
         if not request.statusraw:

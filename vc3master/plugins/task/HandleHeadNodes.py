@@ -39,6 +39,7 @@ class HandleHeadNodes(VC3Task):
         self.node_image            = self.config.get(section, 'node_image')
         self.node_flavor           = self.config.get(section, 'node_flavor')
         self.node_user             = self.config.get(section, 'node_user')
+        self.node_network_id       = self.config.get(section, 'node_network_id')
         self.node_private_key_file = self.config.get(section, 'node_private_key_file')
         self.node_public_key_name  = os.path.expanduser(self.config.get(section, 'node_public_key_name'))
 
@@ -87,19 +88,21 @@ class HandleHeadNodes(VC3Task):
             elif request.headnode['state'] == 'initializing':
                 self.check_if_done_init(request)
             elif request.headnode['state'] == 'failure':
-                self.terminate_server(request)
+                self.terminate_server(request, state = 'failure')
 
         else:
             return
 
         try:
+            # hack to force info update (changing single fields does not trigger update)
+            request.headnode = request.headnode
             self.client.storeRequest(request)
         except Exception, e:
             self.log.warning("Storing the new request state failed. (%s)", e)
             self.log.warning(traceback.format_exc(None))
 
 
-    def terminate_server(self, request):
+    def terminate_server(self, request, state = 'terminated'):
         try:
 
             if self.initializers[request.name]:
@@ -115,7 +118,7 @@ class HandleHeadNodes(VC3Task):
         except Exception, e:
             self.log.warning('Could not find headnode for request %s (%s)', request.name, e)
 
-        request.headnode['state'] = 'terminated'
+        request.headnode['state'] = state
 
     def create_server(self, request):
         request.headnode = {}
@@ -132,7 +135,7 @@ class HandleHeadNodes(VC3Task):
     def check_if_online(self, request):
         ip = self.__get_ip(request)
 
-        if not ip:
+        if ip is None:
             return False
 
         try:
@@ -167,7 +170,8 @@ class HandleHeadNodes(VC3Task):
             pass
 
         self.log.info('Booting new headnode at %s for request %s', request.headnode, request.name)
-        server = self.nova.servers.create(name = request.name, image = self.node_image, flavor = self.node_flavor, key_name = self.node_public_key_name, security_groups = self.node_security_groups)
+        server = self.nova.servers.create(name = request.name, image = self.node_image, flavor = self.node_flavor, key_name = self.node_public_key_name, security_groups = self.node_security_groups, nic = [{'net-id' : self.node_network_id}])
+                )
         return server
 
 
@@ -234,7 +238,7 @@ class HandleHeadNodes(VC3Task):
                     if re.match('\d+\.\d+\.\d+\.\d+', ip):
                         return ip
         except Exception, e:
-            self.log.warning("Could not find ip in network '%s' for request %s: %s", self.node_network_name, request.name, e)
+            self.log.warning("Could not find ip for request %s: %s", request.name, e)
             raise e
 
         return None
