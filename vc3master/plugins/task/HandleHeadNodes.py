@@ -199,7 +199,7 @@ class HandleHeadNodes(VC3Task):
         extra_vars  = 'request_name=' + request.name
         extra_vars += ' setup_user_name=' + self.node_user
         extra_vars += ' production_user_name=' + allocation.accountname
-        extra_vars += ' production_user_public_key=' + allocation.pubtoken
+        extra_vars += " production_user_public_key='" + allocation.pubtoken + "'"
 
         pipe = subprocess.Popen(
                 ['ansible-playbook',
