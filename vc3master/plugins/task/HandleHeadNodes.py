@@ -40,8 +40,8 @@ class HandleHeadNodes(VC3Task):
         self.node_flavor           = self.config.get(section, 'node_flavor')
         self.node_user             = self.config.get(section, 'node_user')
         self.node_network_id       = self.config.get(section, 'node_network_id')
-        self.node_private_key_file = self.config.get(section, 'node_private_key_file')
-        self.node_public_key_name  = os.path.expanduser(self.config.get(section, 'node_public_key_name'))
+        self.node_private_key_file = os.path.expanduser(self.config.get(section, 'node_private_key_file'))
+        self.node_public_key_name  = self.config.get(section, 'node_public_key_name')
 
         self.ansible_path     = os.path.expanduser(self.config.get(section, 'ansible_path'))
         self.ansible_playbook = self.config.get(section, 'ansible_playbook')
@@ -107,7 +107,9 @@ class HandleHeadNodes(VC3Task):
 
             if self.initializers[request.name]:
                 try:
-                    self.initializers[request.name].terminate()
+                    proc = self.initializers[request.name]
+                    self.initializers[request.name] = None
+                    proc.terminate()
                 except Exception, e:
                     self.log.warning('Exception while killing initializer for %s: %s', request.name, e)
 
@@ -139,14 +141,14 @@ class HandleHeadNodes(VC3Task):
             return False
 
         try:
-            subprocess.call([
+            subprocess.check_call([
                 'ssh',
                 '-o',
                 'UserKnownHostsFile=/dev/null',
                 '-o',
                 'StrictHostKeyChecking=no',
                 '-o',
-                'ConnectTimeout=10'
+                'ConnectTimeout=10',
                 '-i',
                 self.node_private_key_file,
                 '-l',
@@ -169,9 +171,9 @@ class HandleHeadNodes(VC3Task):
         except Exception, e:
             pass
 
-        self.log.info('Booting new headnode at %s for request %s', request.headnode, request.name)
+        self.log.info('Booting new headnode for request %s...', request.name)
         server = self.nova.servers.create(name = request.name, image = self.node_image, flavor = self.node_flavor, key_name = self.node_public_key_name, security_groups = self.node_security_groups, nic = [{'net-id' : self.node_network_id}])
-                )
+
         return server
 
 
@@ -188,11 +190,21 @@ class HandleHeadNodes(VC3Task):
 
         os.environ['ANSIBLE_HOST_KEY_CHECKING']='False'
 
+        # key should come from an openstack allocation when the openstack
+        # resource is defined.  for now, we take the key of the first
+        # allocation first allocation of the request.
+        allocation_name = request.allocations[0]
+        allocation      = self.client.getAllocation(allocation_name)
+
+        extra_vars  = 'request_name=' + request.name
+        extra_vars += ' production_user_name=' + allocation.accountname
+        extra_vars += ' production_user_public_key=' + allocation.pubtoken
+
         pipe = subprocess.Popen(
                 ['ansible-playbook',
                     self.ansible_playbook,
                     '--extra-vars',
-                    'request_name=' + request.name,
+                    extra_vars,
                     '--key-file',
                     self.node_private_key_file,
                     '--inventory',
@@ -209,17 +221,18 @@ class HandleHeadNodes(VC3Task):
             pipe.poll()
 
             if pipe.returncode is None:
-                return
+                return False
+
             if pipe.returncode == 0:
                 request.headnode['state'] = 'running'
             else:
                 self.log.warning('Error when initializing headnode for request %s.', request.name)
-                request.headnode['state'] = 'failure'
+                #request.headnode['state'] = 'failure'
+            return True
 
         except Exception, e:
             self.log.warning('Error for headnode initializers for request %s (%s)', request.name, e)
             request.headnode['state'] = 'failure'
-
 
     def __get_ip(self, request):
         try:

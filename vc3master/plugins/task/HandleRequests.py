@@ -344,7 +344,7 @@ class HandleRequests(VC3Task):
             #allocation.sectype = 'ssh-rsa'
             #(allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)
             
-            config.set(name, 'plugin',        'SSH')
+            config.set(name, 'plugin',   'SSH')
             config.set(name, 'ssh.type',  allocation.sectype)
             config.set(name, 'ssh.publickey', allocation.pubtoken)
             config.set(name, 'ssh.privatekey', allocation.privtoken)
