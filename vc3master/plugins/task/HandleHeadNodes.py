@@ -197,6 +197,7 @@ class HandleHeadNodes(VC3Task):
         allocation      = self.client.getAllocation(allocation_name)
 
         extra_vars  = 'request_name=' + request.name
+        extra_vars += ' setup_user_name=' + self.node_user
         extra_vars += ' production_user_name=' + allocation.accountname
         extra_vars += ' production_user_public_key=' + allocation.pubtoken
 
