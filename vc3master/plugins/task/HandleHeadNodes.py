@@ -83,11 +83,14 @@ class HandleHeadNodes(VC3Task):
 
             if request.headnode is None:
                 self.create_server(request)
-            elif request.headnode['state'] == 'booting' and self.check_if_online(request):
+
+            if request.headnode['state'] == 'booting' and self.check_if_online(request):
                 self.initialize_server(request)
-            elif request.headnode['state'] == 'initializing':
-                self.check_if_done_init(request)
-            elif request.headnode['state'] == 'failure':
+
+            if request.headnode['state'] == 'initializing' and self.check_if_done_init(request):
+                self.report_running_server(request)
+
+            if request.headnode['state'] == 'failure':
                 self.terminate_server(request, state = 'failure')
 
         else:
@@ -199,7 +202,7 @@ class HandleHeadNodes(VC3Task):
         extra_vars  = 'request_name=' + request.name
         extra_vars += ' setup_user_name=' + self.node_user
         extra_vars += ' production_user_name=' + allocation.accountname
-        extra_vars += " production_user_public_key='" + allocation.pubtoken + "'"
+        extra_vars += " production_user_public_key='" + self.client.decode(allocation.pubtoken) + "'"
 
         pipe = subprocess.Popen(
                 ['ansible-playbook',
@@ -216,7 +219,6 @@ class HandleHeadNodes(VC3Task):
         self.initializers[request.name] = pipe
 
     def check_if_done_init(self, request):
-
         try:
             pipe = self.initializers[request.name]
             pipe.poll()
@@ -224,16 +226,43 @@ class HandleHeadNodes(VC3Task):
             if pipe.returncode is None:
                 return False
 
-            if pipe.returncode == 0:
-                request.headnode['state'] = 'running'
-            else:
+            # the process is done when there is a returncode
+            self.initializers[request.name] = None
+
+            if pipe.returncode != 0:
                 self.log.warning('Error when initializing headnode for request %s.', request.name)
-                #request.headnode['state'] = 'failure'
+                request.headnode['state'] = 'failure'
+
             return True
 
         except Exception, e:
             self.log.warning('Error for headnode initializers for request %s (%s)', request.name, e)
             request.headnode['state'] = 'failure'
+
+    def report_running_server(self, request):
+
+        if request.headnode['state'] != 'initializing':
+            return
+
+        try:
+            request.headnode['condor_password_file'] = self.read_password_file(request)
+            request.headnode['state'] = 'running'
+        except Exception, e:
+            self.log.warning('Cound not read condor password file for request %s (%s)', request.name, e)
+            request.headnode['state'] = 'failure'
+
+    def read_password_file(self, request):
+        condor_password_file = '/tmp/condor_password.' + request.name
+
+        with open(condor_password_file, 'r') as f:
+            contents = f.read()
+
+            try:
+                os.remove(condor_password_file)
+            except Exception, e:
+                self.log.warning("Could not remove file: %s", condor_password_file)
+
+            return self.client.encode(contents)
 
     def __get_ip(self, request):
         try:
