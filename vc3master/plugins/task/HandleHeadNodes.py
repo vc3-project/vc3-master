@@ -79,6 +79,7 @@ class HandleHeadNodes(VC3Task):
 
         if request.state == 'cleanup':
             self.terminate_server(request)
+
         elif request.state == 'validated':
 
             if request.headnode is None:
@@ -107,6 +108,9 @@ class HandleHeadNodes(VC3Task):
 
     def terminate_server(self, request, state = 'terminated'):
         try:
+
+            if request.headnode['state'] == 'terminated':
+                return
 
             if self.initializers[request.name]:
                 try:
