@@ -263,6 +263,11 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorssh.port',  str(resource.accessport))
             config.set(section_name, 'batchsubmit.condorssh.authprofile', allocation.name)
             config.set(section_name, 'executable',          '       %(builder)s')
+
+            if request.headnode and request.headnode.has_key['condor_password_file']:
+                config.set(section_name, 'condor_password_filename', 'condor_password.' + request.name)
+                config.set(section_name, 'condor_password_contents', request.headnode['condor_password_file'])
+
         elif resource.accesstype == 'cloud':
             config.set(section_name, 'batchsubmitplugin',          'CondorEC2')
         elif resource.accesstype == 'local':
