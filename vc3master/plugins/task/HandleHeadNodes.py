@@ -179,7 +179,7 @@ class HandleHeadNodes(VC3Task):
             pass
 
         self.log.info('Booting new headnode for request %s...', request.name)
-        server = self.nova.servers.create(name = request.name, image = self.node_image, flavor = self.node_flavor, key_name = self.node_public_key_name, security_groups = self.node_security_groups, nic = [{'net-id' : self.node_network_id}])
+        server = self.nova.servers.create(name = request.name, image = self.node_image, flavor = self.node_flavor, key_name = self.node_public_key_name, security_groups = self.node_security_groups, nics = [{'net-id' : self.node_network_id}])
 
         return server
 
