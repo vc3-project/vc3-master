@@ -225,6 +225,7 @@ class HandleRequests(VC3Task):
             return request.queuesconf
         except Exception, e:
             self.log.error('Failure to generate queuesconf: %s', e)
+            self.log.debug(traceback.format_exc(None))
             request.queuesconf = ''
             return None
 
