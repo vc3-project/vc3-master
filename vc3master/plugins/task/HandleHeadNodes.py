@@ -232,7 +232,7 @@ class HandleHeadNodes(VC3Task):
             pipe = self.initializers[request.name]
             pipe.poll()
 
-            ansible_debug.flush()
+            self.ansible_debug.flush()
 
             if pipe.returncode is None:
                 return False
