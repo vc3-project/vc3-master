@@ -100,8 +100,9 @@ class HandleRequests(VC3Task):
             self.log.debug("request '%s' remained in state '%s'", request.name, request.state)
 
         try:
-            self.add_queues_conf(request, nodesets)
-            self.add_auth_conf(request)
+            if request.state != 'new' and request.state != 'validated':
+                self.add_queues_conf(request, nodesets)
+                self.add_auth_conf(request)
             self.client.storeRequest(request)
         except Exception, e:
             self.log.warning("Storing the new request state failed. (%s)", e)
@@ -213,26 +214,36 @@ class HandleRequests(VC3Task):
         '''
         config = ConfigParser.RawConfigParser()
 
-        for allocation_name in request.allocations:
-            self.generate_queues_section(config, request, nodesets, allocation_name)
+        try:
+            for allocation_name in request.allocations:
+                self.generate_queues_section(config, request, nodesets, allocation_name)
 
-        conf_as_string = StringIO.StringIO()
-        config.write(conf_as_string)
+            conf_as_string = StringIO.StringIO()
+            config.write(conf_as_string)
 
-        request.queuesconf = b64encode(conf_as_string.getvalue())
-        return request.queuesconf
+            request.queuesconf = b64encode(conf_as_string.getvalue())
+            return request.queuesconf
+        except Exception, e:
+            self.log.error('Failure to generate queuesconf: %s', e)
+            request.queuesconf = ''
+            return None
 
     def add_auth_conf(self, request):
         config = ConfigParser.RawConfigParser()
 
-        for allocation_name in request.allocations:
-            self.generate_auth_section(config, request, allocation_name)
+        try:
+            for allocation_name in request.allocations:
+                self.generate_auth_section(config, request, allocation_name)
 
-        conf_as_string = StringIO.StringIO()
-        config.write(conf_as_string)
+            conf_as_string = StringIO.StringIO()
+            config.write(conf_as_string)
 
-        request.authconf = b64encode(conf_as_string.getvalue())
-        return request.authconf
+            request.authconf = b64encode(conf_as_string.getvalue())
+            return request.authconf
+        except Exception, e:
+            self.log.error('Failure generating auth.conf: %s', e)
+            request.authconf = ''
+            return None
 
     def generate_queues_section(self, config, request, nodesets, allocation_name):
         allocation = self.client.getAllocation(allocation_name)
