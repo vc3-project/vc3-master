@@ -43,8 +43,11 @@ class HandleHeadNodes(VC3Task):
         self.node_private_key_file = os.path.expanduser(self.config.get(section, 'node_private_key_file'))
         self.node_public_key_name  = self.config.get(section, 'node_public_key_name')
 
-        self.ansible_path     = os.path.expanduser(self.config.get(section, 'ansible_path'))
-        self.ansible_playbook = self.config.get(section, 'ansible_playbook')
+        self.ansible_path       = os.path.expanduser(self.config.get(section, 'ansible_path'))
+        self.ansible_playbook   = self.config.get(section, 'ansible_playbook')
+
+        self.ansible_debug_file = self.config.get(section, 'ansible_debug_file') # temporary for debug, only works for one node at a time
+        self.ansible_debug      = open(self.ansible_debug_file, 'a')
 
         groups = self.config.get(section, 'node_security_groups')
         self.node_security_groups = groups.split(',')
@@ -218,7 +221,9 @@ class HandleHeadNodes(VC3Task):
                     '--inventory',
                     request.headnode['ip'] + ',',
                     ],
-                cwd = self.ansible_path
+                cwd = self.ansible_path,
+                stdout=self.ansible_debug,
+                stderr=self.ansible_debug,
                 )
         self.initializers[request.name] = pipe
 
@@ -227,6 +232,8 @@ class HandleHeadNodes(VC3Task):
             pipe = self.initializers[request.name]
             pipe.poll()
 
+            ansible_debug.flush()
+
             if pipe.returncode is None:
                 return False
 
@@ -234,7 +241,7 @@ class HandleHeadNodes(VC3Task):
             self.initializers[request.name] = None
 
             if pipe.returncode != 0:
-                self.log.warning('Error when initializing headnode for request %s.', request.name)
+                self.log.warning('Error when initializing headnode for request %s. Exit status: %d', request.name, pipe.returncode)
                 request.headnode['state'] = 'failure'
 
             return True
