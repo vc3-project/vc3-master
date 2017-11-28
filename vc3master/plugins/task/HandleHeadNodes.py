@@ -209,7 +209,7 @@ class HandleHeadNodes(VC3Task):
 
         extra_vars  = 'request_name=' + request.name
         extra_vars += ' setup_user_name=' + self.node_user
-        extra_vars += ' production_user_name=' + request.owner
+        extra_vars += ' production_user_name=' + 'vc3username'
         extra_vars += " production_user_public_key='" + self.client.decode(self.read_encoded(self.node_user_public_key_file)) + "'"
         extra_vars += ' condor_password_file=' + self.condor_password_filename(request)
 
