@@ -402,8 +402,8 @@ class HandleRequests(VC3Task):
         if nodeset.environment is not None:
             envs.append(nodeset.environment)
 
-        if headnode and headnode.has_key['condor_password_environment']:
-            envs.append(headnode.has_key['condor_password_environment'])
+        if headnode and headnode.has_key('condor_password_environment'):
+            envs.append(headnode.has_key('condor_password_environment'))
 
         for env_name in envs:
             if nodeset.environment is not None:
