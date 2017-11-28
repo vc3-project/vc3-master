@@ -391,7 +391,7 @@ class HandleRequests(VC3Task):
         return s
 
 
-    def add_environment_to_queuesconf(self, config, request, section_name, nodeset, headnone):
+    def add_environment_to_queuesconf(self, config, request, section_name, nodeset, headnode):
         #s  = " --revar 'VC3_.*'"
         s  = ' '
         s += ' --home=.'
