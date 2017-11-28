@@ -391,7 +391,7 @@ class HandleRequests(VC3Task):
         return s
 
 
-    def add_environment_to_queuesconf(self, config, request, section_name, nodeset, headnone):
+    def add_environment_to_queuesconf(self, config, request, section_name, nodeset, headnode):
         #s  = " --revar 'VC3_.*'"
         s  = ' '
         s += ' --home=.'
@@ -402,8 +402,8 @@ class HandleRequests(VC3Task):
         if nodeset.environment is not None:
             envs.append(nodeset.environment)
 
-        if headnode and headnode.has_key['condor_password_environment']:
-            envs.append(headnode.has_key['condor_password_environment'])
+        if headnode and headnode.has_key('condor_password_environment'):
+            envs.append(headnode['condor_password_environment'])
 
         for env_name in envs:
             if nodeset.environment is not None:

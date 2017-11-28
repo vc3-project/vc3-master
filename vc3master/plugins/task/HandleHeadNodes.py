@@ -42,6 +42,7 @@ class HandleHeadNodes(VC3Task):
         self.node_network_id       = self.config.get(section, 'node_network_id')
         self.node_private_key_file = os.path.expanduser(self.config.get(section, 'node_private_key_file'))
         self.node_public_key_name  = self.config.get(section, 'node_public_key_name')
+        self.node_user_public_key_file = os.path.expanduser(self.config.get(section, 'node_user_public_key_file'))
 
         self.ansible_path       = os.path.expanduser(self.config.get(section, 'ansible_path'))
         self.ansible_playbook   = self.config.get(section, 'ansible_playbook')
@@ -208,8 +209,8 @@ class HandleHeadNodes(VC3Task):
 
         extra_vars  = 'request_name=' + request.name
         extra_vars += ' setup_user_name=' + self.node_user
-        extra_vars += ' production_user_name=' + allocation.accountname
-        extra_vars += " production_user_public_key='" + self.client.decode(allocation.pubtoken) + "'"
+        extra_vars += ' production_user_name=' + request.owner
+        extra_vars += " production_user_public_key='" + self.client.decode(self.read_encoded(self.node_user_public_key_file)) + "'"
         extra_vars += ' condor_password_file=' + self.condor_password_filename(request)
 
         pipe = subprocess.Popen(
@@ -264,13 +265,21 @@ class HandleHeadNodes(VC3Task):
             request.headnode['state'] = 'failure'
 
     def create_password_environment(self, request):
+
         password_env_name = request.name + '.condor-password'
-        password_contents = self.read_password_file(request)
+        password_contents = self.read_encoded(self.condor_password_filename(request))
         password_basename = os.path.basename(self.condor_password_filename(request))
 
         try:
-            env = client.defineEnvironment(password_env_name, request.owner, files = { password_basename : password_contents })
-            client.storeEnvironment(env)
+            os.remove(self.condor_password_filename(request))
+        except Exception, e:
+            self.log.warning("Could not remove file: %s", self.condor_password_filename(request))
+
+        self.log.debug('Creating condor password environment %s', password_env_name)
+
+        try:
+            env = self.client.defineEnvironment(password_env_name, request.owner, files = { password_basename : password_contents })
+            self.client.storeEnvironment(env)
 
             request.headnode['condor_password_environment'] = password_env_name
             request.headnode['condor_password_filename']    = password_basename
@@ -282,18 +291,12 @@ class HandleHeadNodes(VC3Task):
         # file created by ansible
         return '/tmp/condor_password.' + request.name
 
-    def read_password_file(self, request):
-        condor_password_file = '/tmp/condor_password.' + request.name     # file created by ansible
-
-        with open(condor_password_file, 'r') as f:
+    def read_encoded(self, filename):
+        with open(filename, 'r') as f:
             contents = f.read()
-
-            try:
-                os.remove(condor_password_file)
-            except Exception, e:
-                self.log.warning("Could not remove file: %s", condor_password_file)
-
             return self.client.encode(contents)
+
+
 
     def __get_ip(self, request):
         try:
