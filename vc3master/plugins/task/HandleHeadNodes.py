@@ -272,8 +272,8 @@ class HandleHeadNodes(VC3Task):
         self.log.debug('Creating condor password environment %s', password_env_name)
 
         try:
-            env = client.defineEnvironment(password_env_name, request.owner, files = { password_basename : password_contents })
-            client.storeEnvironment(env)
+            env = self.client.defineEnvironment(password_env_name, request.owner, files = { password_basename : password_contents })
+            self.client.storeEnvironment(env)
 
             request.headnode['condor_password_environment'] = password_env_name
             request.headnode['condor_password_filename']    = password_basename
