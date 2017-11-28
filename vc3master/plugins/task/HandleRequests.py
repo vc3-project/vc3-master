@@ -38,9 +38,9 @@ class HandleRequests(VC3Task):
                     try:
                         self.process_request(r)
                     except VC3InvalidRequest, e:
-                        self.log.warning("Request %s is not valid. (%s)", request.name, e)
+                        self.log.warning("Request %s is not valid. (%s)", r.name, e)
                     except Exception, e:
-                        self.log.warning("Request %s had a exception (%s)", request.name, e)
+                        self.log.warning("Request %s had a exception (%s)", r.name, e)
                         self.log.debug(traceback.format_exc(None))
         except InfoConnectionFailure, e:
             self.log.warning("Could not read requests from infoservice. (%s)", e)
@@ -65,8 +65,12 @@ class HandleRequests(VC3Task):
             (next_state, reason) = self.state_new(request)
 
         if  next_state == 'validated':
-            # nexts: validated, pending, terminating
+            # nexts: validated, initialized, terminating
             (next_state, reason) = self.state_validated(request)
+
+        if  next_state == 'initialized':
+            # nexts: initialized, pending, terminating
+            (next_state, reason) = self.state_initialized(request)
 
         if next_state == 'pending':
             # nexts: pending, running, terminating
@@ -96,11 +100,13 @@ class HandleRequests(VC3Task):
             self.log.debug("request '%s' remained in state '%s'", request.name, request.state)
 
         try:
-            self.add_queues_conf(request, nodesets)
-            self.add_auth_conf(request)
+            if request.state != 'new' and request.state != 'validated':
+                self.add_queues_conf(request, nodesets)
+                self.add_auth_conf(request)
             self.client.storeRequest(request)
         except Exception, e:
             self.log.warning("Storing the new request state failed. (%s)", e)
+            self.log.warning(traceback.format_exc(None))
 
     def is_finishing_state(self, state):
         return state in ['terminating', 'cleanup', 'terminated']
@@ -119,17 +125,34 @@ class HandleRequests(VC3Task):
         return ('terminated', 'Invalid request: %s' % e.reason)
 
     def state_validated(self, request):
+        self.log.debug('waiting for headnode to come online for %s' % request.name)
+
+        # set headnode manually:
+        #request.headnode = { 'state' : 'running', 'ip' : 'condor-dev.virtualclusters.org' }
+
+        if request.headnode is None:
+            return ('validated', None)
+        elif request.headnode['state'] == 'failure':
+            return ('cleanup', 'Failure when launching headnode')
+        elif request.headnode['state'] == 'running':
+            return ('initialized', 'Waiting for factory to start filling the request.')
+        else:
+            return ('validated', None)
+
+
+    def state_initialized(self, request):
         self.log.debug('waiting for factory to configure %s' % request.name)
 
         running = self.job_count_with_state(request, 'running')
         idle    = self.job_count_with_state(request, 'idle')
 
         if (running is None) or (idle is None) or (idle + running == 0):
-            # factory has not reported any jobs, so we remain in the validated state. 
-            return ('validated', None)
+            # factory has not reported any jobs, so we remain in the initialized state. 
+            return ('initialized', None)
         else:
             # factory updated the status of the queue, so we know the request is configured.
-            return ('pending', 'Waiting for factory to start filling the request.')
+            return ('pending', None)
+
 
     def state_pending(self, request):
         self.log.debug('waiting for factory to start fulfilling request %s' % request.name)
@@ -180,6 +203,8 @@ class HandleRequests(VC3Task):
         if self.is_everything_cleaned_up(request):
             return ('terminated', 'Garbage collected')
 
+        return ('cleanup', 'Waiting for headnode/others to terminate')
+
 
     def add_queues_conf(self, request, nodesets):
         '''
@@ -189,26 +214,37 @@ class HandleRequests(VC3Task):
         '''
         config = ConfigParser.RawConfigParser()
 
-        for allocation_name in request.allocations:
-            self.generate_queues_section(config, request, nodesets, allocation_name)
+        try:
+            for allocation_name in request.allocations:
+                self.generate_queues_section(config, request, nodesets, allocation_name)
 
-        conf_as_string = StringIO.StringIO()
-        config.write(conf_as_string)
+            conf_as_string = StringIO.StringIO()
+            config.write(conf_as_string)
 
-        request.queuesconf = b64encode(conf_as_string.getvalue())
-        return request.queuesconf
+            request.queuesconf = b64encode(conf_as_string.getvalue())
+            return request.queuesconf
+        except Exception, e:
+            self.log.error('Failure to generate queuesconf: %s', e)
+            self.log.debug(traceback.format_exc(None))
+            request.queuesconf = ''
+            return None
 
     def add_auth_conf(self, request):
         config = ConfigParser.RawConfigParser()
 
-        for allocation_name in request.allocations:
-            self.generate_auth_section(config, request, allocation_name)
+        try:
+            for allocation_name in request.allocations:
+                self.generate_auth_section(config, request, allocation_name)
 
-        conf_as_string = StringIO.StringIO()
-        config.write(conf_as_string)
+            conf_as_string = StringIO.StringIO()
+            config.write(conf_as_string)
 
-        request.authconf = b64encode(conf_as_string.getvalue())
-        return request.authconf
+            request.authconf = b64encode(conf_as_string.getvalue())
+            return request.authconf
+        except Exception, e:
+            self.log.error('Failure generating auth.conf: %s', e)
+            request.authconf = ''
+            return None
 
     def generate_queues_section(self, config, request, nodesets, allocation_name):
         allocation = self.client.getAllocation(allocation_name)
@@ -239,6 +275,11 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorssh.port',  str(resource.accessport))
             config.set(section_name, 'batchsubmit.condorssh.authprofile', allocation.name)
             config.set(section_name, 'executable',          '       %(builder)s')
+
+            if request.headnode and request.headnode.has_key('condor_password_environment'):
+                config.set(section_name, 'condor_password_filename',    request.headnode['condor_password_filename'])
+                config.set(section_name, 'condor_password_environment', request.headnode['condor_password_environment'])
+
         elif resource.accesstype == 'cloud':
             config.set(section_name, 'batchsubmitplugin',          'CondorEC2')
         elif resource.accesstype == 'local':
@@ -249,7 +290,7 @@ class HandleRequests(VC3Task):
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
 
-        self.add_environment_to_queuesconf(config, request, section_name, nodeset)
+        self.add_environment_to_queuesconf(config, request, section_name, nodeset, request.headnode)
 
         self.log.debug("Completed filling in config for allocation %s" % allocation.name)
 
@@ -268,7 +309,7 @@ class HandleRequests(VC3Task):
     
     def jobs_to_run_by_static_balanced(self, request, allocation, nodeset):
         numalloc     = len(request.allocations)
-        total_to_run = request.statusinfo[nodeset.name]['requested']
+        total_to_run = self.total_jobs_requested(request)
         raw          = int(math.floor(float(total_to_run) / numalloc))
         total_raw    = raw * numalloc
 
@@ -320,7 +361,7 @@ class HandleRequests(VC3Task):
             #allocation.sectype = 'ssh-rsa'
             #(allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)
             
-            config.set(name, 'plugin',        'SSH')
+            config.set(name, 'plugin',   'SSH')
             config.set(name, 'ssh.type',  allocation.sectype)
             config.set(name, 'ssh.publickey', allocation.pubtoken)
             config.set(name, 'ssh.privatekey', allocation.privtoken)
@@ -337,10 +378,10 @@ class HandleRequests(VC3Task):
 
         s = ''
         if nodeset.app_type == 'htcondor':
-            collector = 'condor-dev.virtualclusters.org'
+            collector = request.headnode['ip']
             s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
-            s += ' -- vc3-glidein -c %s -C %s -p mycondorpassword' % (collector, collector)
+            s += ' -- vc3-glidein -c %s -C %s -p %s' % (collector, collector, request.headnode['condor_password_filename'])
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
             s += ' -- work_queue_worker -M %s -t 1800' % (request.name,)
@@ -350,41 +391,55 @@ class HandleRequests(VC3Task):
         return s
 
 
-    def add_environment_to_queuesconf(self, config, request, section_name, nodeset):
+    def add_environment_to_queuesconf(self, config, request, section_name, nodeset, headnone):
         #s  = " --revar 'VC3_.*'"
         s  = ' '
         s += ' --home=.'
         s += ' --install=.'
 
+        envs = []
+
         if nodeset.environment is not None:
-            environment = self.client.getEnvironment(nodeset.environment)
-            if environment is None:
-                raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (nodeset.environment, section_name), request = request)
+            envs.append(nodeset.environment)
 
-            config.set(section_name, 'vc3.environment', environment.name)
+        if headnode and headnode.has_key['condor_password_environment']:
+            envs.append(headnode.has_key['condor_password_environment'])
 
-            vs    = [ "VC3_REQUESTID=%s" % request.name, "VC3_QUEUE=%s" % section_name]
-            for k in environment.envmap:
-                vs.append("%s=%s" % (k, environment.envmap[k]))
+        for env_name in envs:
+            if nodeset.environment is not None:
+                environment = self.client.getEnvironment(env_name)
+                if environment is None:
+                    raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (env_name, section_name), request = request)
 
-            reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
-            vars  = ' '.join(['--var %s' % x for x in vs])
+                vs    = [ "VC3_REQUESTID=%s" % request.name, "VC3_QUEUE=%s" % section_name]
+                for k in environment.envmap:
+                    vs.append("%s=%s" % (k, environment.envmap[k]))
 
-            s += ' ' + vars + ' ' + reqs
+                reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
+                vars  = ' '.join(['--var %s' % x for x in vs])
 
-            if environment.builder_extra_args:
-                s += ' ' + ' '.join(environment.builder_extra_args)
+                s += ' ' + vars + ' ' + reqs
 
-            if environment.command:
-                self.log.warning('Ignoring command of environment %s for %s. Adding pilot for %s instead' % (environment.name, section_name, nodeset.name))
+                if environment.builder_extra_args:
+                    s += ' ' + ' '.join(environment.builder_extra_args)
+
+                if environment.command:
+                    self.log.warning('Ignoring command of environment %s for %s. Adding pilot for %s instead' % (environment.name, section_name, nodeset.name))
+
+        if len(envs) > 0:
+            config.set(section_name, 'vc3.environments', ','.join(envs))
 
         s += ' ' + self.add_pilot_to_queuesconf(config, request, section_name, nodeset)
 
         config.set(section_name, 'executable.arguments', s)
 
     def is_everything_cleaned_up(self, request):
-        ''' TO BE FILLED '''
-        return True
+        # here we want to check the state of the headnode
+
+        if request.headnode['state'] == 'terminated' or request.headnode['state'] == 'failure':
+            return True
+
+        return False
 
     def job_count_with_state(self, request, state):
         if not request.statusraw:
@@ -406,9 +461,6 @@ class HandleRequests(VC3Task):
     def total_jobs_requested(self, request):
         if self.is_finishing_state(request.state):
             return 0
-
-        if not request.statusinfo:
-            raise Exception("request.statusinfo not available. This should not ever happen...")
 
         cluster = self.client.getCluster(request.cluster)
 
