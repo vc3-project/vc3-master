@@ -264,9 +264,12 @@ class HandleHeadNodes(VC3Task):
             request.headnode['state'] = 'failure'
 
     def create_password_environment(self, request):
+
         password_env_name = request.name + '.condor-password'
         password_contents = self.read_password_file(request)
         password_basename = os.path.basename(self.condor_password_filename(request))
+
+        self.log.debug('Creating condor password environment %s', password_env_name)
 
         try:
             env = client.defineEnvironment(password_env_name, request.owner, files = { password_basename : password_contents })
