@@ -46,7 +46,7 @@ class HandleHeadNodes(VC3Task):
         self.ansible_path       = os.path.expanduser(self.config.get(section, 'ansible_path'))
         self.ansible_playbook   = self.config.get(section, 'ansible_playbook')
 
-        self.ansible_debug_file = self.config.get(section, 'ansible_debug_file') # temporary for debug, only works for one node at a time
+        self.ansible_debug_file = os.path.expanduser(self.config.get(section, 'ansible_debug_file')) # temporary for debug, only works for one node at a time
         self.ansible_debug      = open(self.ansible_debug_file, 'a')
 
         groups = self.config.get(section, 'node_security_groups')
@@ -210,6 +210,7 @@ class HandleHeadNodes(VC3Task):
         extra_vars += ' setup_user_name=' + self.node_user
         extra_vars += ' production_user_name=' + allocation.accountname
         extra_vars += " production_user_public_key='" + self.client.decode(allocation.pubtoken) + "'"
+        extra_vars += ' condor_password_file=' + self.condor_password_filename(request)
 
         pipe = subprocess.Popen(
                 ['ansible-playbook',
@@ -256,14 +257,33 @@ class HandleHeadNodes(VC3Task):
             return
 
         try:
-            request.headnode['condor_password_file'] = self.read_password_file(request)
+            self.create_password_environment(request)
             request.headnode['state'] = 'running'
         except Exception, e:
             self.log.warning('Cound not read condor password file for request %s (%s)', request.name, e)
             request.headnode['state'] = 'failure'
 
+    def create_password_environment(self, request):
+        password_env_name = request.name + '.condor-password'
+        password_contents = self.read_password_file(request)
+        password_basename = os.path.basename(self.condor_password_filename(request))
+
+        try:
+            env = client.defineEnvironment(password_env_name, request.owner, files = { password_basename : password_contents })
+            client.storeEnvironment(env)
+
+            request.headnode['condor_password_environment'] = password_env_name
+            request.headnode['condor_password_filename']    = password_basename
+        except Exception, e:
+            self.log.error("Error when creating condor password environment %s: %s", password_env_name, e)
+            self.log.debug(traceback.format_exc(None))
+
+    def condor_password_filename(self, request):
+        # file created by ansible
+        return '/tmp/condor_password.' + request.name
+
     def read_password_file(self, request):
-        condor_password_file = '/tmp/condor_password.' + request.name
+        condor_password_file = '/tmp/condor_password.' + request.name     # file created by ansible
 
         with open(condor_password_file, 'r') as f:
             contents = f.read()
