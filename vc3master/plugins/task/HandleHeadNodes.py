@@ -8,6 +8,7 @@ from base64 import b64encode
 import pluginmanager as pm
 import traceback
 
+import json
 import os
 import re
 import subprocess
@@ -206,17 +207,27 @@ class HandleHeadNodes(VC3Task):
         allocation_name = request.allocations[0]
         allocation      = self.client.getAllocation(allocation_name)
 
-        extra_vars  = 'request_name=' + request.name
-        extra_vars += ' setup_user_name=' + self.node_user
-        extra_vars += ' production_user_name=' + 'vc3username'
-        extra_vars += " production_user_public_key='" + self.client.decode(self.read_encoded(self.node_user_public_key_file)) + "'"
-        extra_vars += ' condor_password_file=' + self.condor_password_filename(request)
+        extra_vars  = {}
+        extra_vars['request_name']         = request.name
+        extra_vars['setup_user_name']      = self.node_user
+        extra_vars['condor_password_file'] = self.condor_password_filename(request)
 
+        extra_vars['production_keys'] = {}
+
+        #members = project get members and keys... for now, fake it:
+        members=['vc3username', 'vc3otherusername']
+        tmpkey=self.client.decode(self.read_encoded(self.node_user_public_key_file))
+
+        for member in members:
+            extra_vars['production_keys'][member] = tmpkey
+
+        # passing extra-vars as a command line argument for now. That won't
+        # scale well, we want to write those vars to a file instead.
         pipe = subprocess.Popen(
                 ['ansible-playbook',
                     self.ansible_playbook,
                     '--extra-vars',
-                    extra_vars,
+                    json.dumps(extra_vars),
                     '--key-file',
                     self.node_private_key_file,
                     '--inventory',
