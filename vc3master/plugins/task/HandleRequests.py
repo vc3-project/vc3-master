@@ -133,7 +133,7 @@ class HandleRequests(VC3Task):
         if request.headnode is None:
             return ('validated', None)
         elif request.headnode['state'] == 'failure':
-            return ('cleanup', 'Failure when launching headnode')
+            return ('validated', 'Failure when launching headnode. Please terminate request.')
         elif request.headnode['state'] == 'running':
             return ('initialized', 'Waiting for factory to start filling the request.')
         else:
@@ -436,7 +436,7 @@ class HandleRequests(VC3Task):
     def is_everything_cleaned_up(self, request):
         # here we want to check the state of the headnode
 
-        if request.headnode['state'] == 'terminated' or request.headnode['state'] == 'failure':
+        if request.headnode['state'] == 'terminated':
             return True
 
         return False

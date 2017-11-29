@@ -81,7 +81,10 @@ class HandleHeadNodes(VC3Task):
 
         self.log.debug("Processing headnode for '%s'", request.name)
 
-        if request.state == 'cleanup':
+        if request.headnode and request.headnode.has_key('state') and request.headnode['state'] == 'terminated':
+            return
+
+        if request.state == 'cleanup' or request.state == 'terminated':
             self.terminate_server(request)
 
         elif request.state == 'validated':
@@ -95,9 +98,6 @@ class HandleHeadNodes(VC3Task):
             if request.headnode['state'] == 'initializing' and self.check_if_done_init(request):
                 self.report_running_server(request)
 
-            if request.headnode['state'] == 'failure':
-                self.terminate_server(request, state = 'failure')
-
         else:
             return
 
@@ -110,9 +110,8 @@ class HandleHeadNodes(VC3Task):
             self.log.warning(traceback.format_exc(None))
 
 
-    def terminate_server(self, request, state = 'terminated'):
+    def terminate_server(self, request):
         try:
-
             if request.headnode['state'] == 'terminated':
                 return
 
@@ -131,7 +130,7 @@ class HandleHeadNodes(VC3Task):
         except Exception, e:
             self.log.warning('Could not find headnode for request %s (%s)', request.name, e)
 
-        request.headnode['state'] = state
+        request.headnode['state'] = 'terminated'
 
     def create_server(self, request):
         request.headnode = {}
