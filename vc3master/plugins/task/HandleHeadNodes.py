@@ -316,6 +316,7 @@ class HandleHeadNodes(VC3Task):
                 self.log.warning('Could not find ssh key for user %s')
             else:
                 keys[member] = user.sshpubstring
+        return keys
 
     def __get_ip(self, request):
         try:
