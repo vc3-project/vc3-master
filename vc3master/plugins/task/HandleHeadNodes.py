@@ -312,10 +312,10 @@ class HandleHeadNodes(VC3Task):
         for member in members:
             user = self.client.getUser(member)
 
-            if not user or not user.sshpubkeystring:
+            if not user or not user.sshpubstring:
                 self.log.warning('Could not find ssh key for user %s')
             else:
-                keys[member] = user.sshpubkeystring
+                keys[member] = user.sshpubstring
 
     def __get_ip(self, request):
         try:
