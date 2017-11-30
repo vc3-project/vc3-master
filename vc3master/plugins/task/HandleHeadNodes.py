@@ -43,7 +43,6 @@ class HandleHeadNodes(VC3Task):
         self.node_network_id       = self.config.get(section, 'node_network_id')
         self.node_private_key_file = os.path.expanduser(self.config.get(section, 'node_private_key_file'))
         self.node_public_key_name  = self.config.get(section, 'node_public_key_name')
-        self.node_user_public_key_file = os.path.expanduser(self.config.get(section, 'node_user_public_key_file'))
 
         self.ansible_path       = os.path.expanduser(self.config.get(section, 'ansible_path'))
         self.ansible_playbook   = self.config.get(section, 'ansible_playbook')
@@ -201,25 +200,11 @@ class HandleHeadNodes(VC3Task):
 
         os.environ['ANSIBLE_HOST_KEY_CHECKING']='False'
 
-        # key should come from an openstack allocation when the openstack
-        # resource is defined.  for now, we take the key of the first
-        # allocation first allocation of the request.
-        allocation_name = request.allocations[0]
-        allocation      = self.client.getAllocation(allocation_name)
-
         extra_vars  = {}
         extra_vars['request_name']         = request.name
         extra_vars['setup_user_name']      = self.node_user
         extra_vars['condor_password_file'] = self.condor_password_filename(request)
-
-        extra_vars['production_keys'] = {}
-
-        #members = project get members and keys... for now, fake it:
-        members=['vc3username', 'vc3otherusername']
-        tmpkey=self.client.decode(self.read_encoded(self.node_user_public_key_file))
-
-        for member in members:
-            extra_vars['production_keys'][member] = tmpkey
+        extra_vars['production_keys']      = self.get_members_keys(request)
 
         # passing extra-vars as a command line argument for now. That won't
         # scale well, we want to write those vars to a file instead.
@@ -306,7 +291,31 @@ class HandleHeadNodes(VC3Task):
             contents = f.read()
             return self.client.encode(contents)
 
+    def get_members_names(self, request):
+        members = None
 
+        if request.project:
+            project = self.client.getProject(request.project)
+            if project:
+                members = project.members
+
+        if not members:
+            members = []
+            self.log.warning('Could not find user names for request %s.')
+
+        return members
+
+    def get_members_keys(self, request):
+        members    = self.get_members_names(request)
+
+        keys = {}
+        for member in members:
+            user = self.client.getUser(member)
+
+            if not user or not user.sshpubkeystring:
+                self.log.warning('Could not find ssh key for user %s')
+            else:
+                keys[member] = user.sshpubkeystring
 
     def __get_ip(self, request):
         try:
