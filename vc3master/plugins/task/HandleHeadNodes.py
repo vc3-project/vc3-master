@@ -8,6 +8,7 @@ from base64 import b64encode
 import pluginmanager as pm
 import traceback
 
+import json
 import os
 import re
 import subprocess
@@ -42,7 +43,6 @@ class HandleHeadNodes(VC3Task):
         self.node_network_id       = self.config.get(section, 'node_network_id')
         self.node_private_key_file = os.path.expanduser(self.config.get(section, 'node_private_key_file'))
         self.node_public_key_name  = self.config.get(section, 'node_public_key_name')
-        self.node_user_public_key_file = os.path.expanduser(self.config.get(section, 'node_user_public_key_file'))
 
         self.ansible_path       = os.path.expanduser(self.config.get(section, 'ansible_path'))
         self.ansible_playbook   = self.config.get(section, 'ansible_playbook')
@@ -81,7 +81,10 @@ class HandleHeadNodes(VC3Task):
 
         self.log.debug("Processing headnode for '%s'", request.name)
 
-        if request.state == 'cleanup':
+        if request.headnode and request.headnode.has_key('state') and request.headnode['state'] == 'terminated':
+            return
+
+        if request.state == 'cleanup' or request.state == 'terminated':
             self.terminate_server(request)
 
         elif request.state == 'validated':
@@ -95,9 +98,6 @@ class HandleHeadNodes(VC3Task):
             if request.headnode['state'] == 'initializing' and self.check_if_done_init(request):
                 self.report_running_server(request)
 
-            if request.headnode['state'] == 'failure':
-                self.terminate_server(request, state = 'failure')
-
         else:
             return
 
@@ -110,9 +110,8 @@ class HandleHeadNodes(VC3Task):
             self.log.warning(traceback.format_exc(None))
 
 
-    def terminate_server(self, request, state = 'terminated'):
+    def terminate_server(self, request):
         try:
-
             if request.headnode['state'] == 'terminated':
                 return
 
@@ -131,7 +130,7 @@ class HandleHeadNodes(VC3Task):
         except Exception, e:
             self.log.warning('Could not find headnode for request %s (%s)', request.name, e)
 
-        request.headnode['state'] = state
+        request.headnode['state'] = 'terminated'
 
     def create_server(self, request):
         request.headnode = {}
@@ -201,23 +200,19 @@ class HandleHeadNodes(VC3Task):
 
         os.environ['ANSIBLE_HOST_KEY_CHECKING']='False'
 
-        # key should come from an openstack allocation when the openstack
-        # resource is defined.  for now, we take the key of the first
-        # allocation first allocation of the request.
-        allocation_name = request.allocations[0]
-        allocation      = self.client.getAllocation(allocation_name)
+        extra_vars  = {}
+        extra_vars['request_name']         = request.name
+        extra_vars['setup_user_name']      = self.node_user
+        extra_vars['condor_password_file'] = self.condor_password_filename(request)
+        extra_vars['production_keys']      = self.get_members_keys(request)
 
-        extra_vars  = 'request_name=' + request.name
-        extra_vars += ' setup_user_name=' + self.node_user
-        extra_vars += ' production_user_name=' + request.owner
-        extra_vars += " production_user_public_key='" + self.client.decode(self.read_encoded(self.node_user_public_key_file)) + "'"
-        extra_vars += ' condor_password_file=' + self.condor_password_filename(request)
-
+        # passing extra-vars as a command line argument for now. That won't
+        # scale well, we want to write those vars to a file instead.
         pipe = subprocess.Popen(
                 ['ansible-playbook',
                     self.ansible_playbook,
                     '--extra-vars',
-                    extra_vars,
+                    json.dumps(extra_vars),
                     '--key-file',
                     self.node_private_key_file,
                     '--inventory',
@@ -296,7 +291,32 @@ class HandleHeadNodes(VC3Task):
             contents = f.read()
             return self.client.encode(contents)
 
+    def get_members_names(self, request):
+        members = None
 
+        if request.project:
+            project = self.client.getProject(request.project)
+            if project:
+                members = project.members
+
+        if not members:
+            members = []
+            self.log.warning('Could not find user names for request %s.')
+
+        return members
+
+    def get_members_keys(self, request):
+        members    = self.get_members_names(request)
+
+        keys = {}
+        for member in members:
+            user = self.client.getUser(member)
+
+            if not user or not user.sshpubstring:
+                self.log.warning('Could not find ssh key for user %s')
+            else:
+                keys[member] = user.sshpubstring
+        return keys
 
     def __get_ip(self, request):
         try:
