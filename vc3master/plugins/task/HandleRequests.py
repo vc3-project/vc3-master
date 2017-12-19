@@ -9,7 +9,7 @@ import json
 import math
 
 from vc3master.task import VC3Task
-from vc3infoservice.infoclient import InfoConnectionFailure
+from vc3infoservice.infoclient import InfoConnectionFailure,InfoEntityMissingException
 
 import pluginmanager as pm
 import traceback
@@ -118,22 +118,23 @@ class HandleRequests(VC3Task):
         if not request.project:
             bad_reasons.append("Request '%s' does not belong to any project." % request.name)
         else:
-            project = self.client.getProject(request.project)
+            try:
+                project = self.client.getProject(request.project)
 
-            if not project:
-                bad_reasons.append("Project '%s' for request '%s' is not defined." % (request.project, request.name))
-            else:
-                if not project.members:
-                    bad_reasons.append("Project '%s' for request '%s' did not define any members." % (request.project, request.name))
-                else:
+                if project.members:
                     for member_name in project.members:
-                        member = self.client.getUser(member_name)
-                        if not member:
+                        try:
+                            member = self.client.getUser(member_name)
+                            if not member.sshpubstring:
+                                bad_reasons.append("User '%s' in project '%s' does not have a ssh-key." % (request.project, request.name))
+                            elif not self.client.validate_ssh_pub_key(member.sshpubstring):
+                                bad_reasons.append("User '%s' in project '%s' has an invalid ssh-key." % (request.project, request.name))
+                        except InfoEntityMissingException:
                             bad_reasons.append("User '%s' in project '%s' is not defined." % (request.project, request.name))
-                        elif not member.sshpubstring:
-                            bad_reasons.append("User '%s' in project '%s' does not have a ssh-key." % (request.project, request.name))
-                        elif not self.client.validate_ssh_pub_key(member.sshpubstring):
-                            bad_reasons.append("User '%s' in project '%s' has an invalid ssh-key." % (request.project, request.name))
+                else:
+                    bad_reasons.append("Project '%s' for request '%s' did not define any members." % (request.project, request.name))
+            except InfoEntityMissingException:
+                bad_reasons.append("Project '%s' for request '%s' is not defined." % (request.project, request.name))
 
         if not bad_reasons:
             return True
