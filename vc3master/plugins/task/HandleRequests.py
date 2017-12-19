@@ -112,17 +112,46 @@ class HandleRequests(VC3Task):
         return state in ['terminating', 'cleanup', 'terminated']
 
     def request_is_valid(self, request):
-        return True
+
+        bad_reasons = []
+
+        if not request.project:
+            bad_reasons.append("Request '%s' does not belong to any project." % request.name)
+        else:
+            project = self.client.getProject(request.project)
+
+            if not project:
+                bad_reasons.append("Project '%s' for request '%s' is not defined." % (request.project, request.name))
+            else:
+                if not project.members:
+                    bad_reasons.append("Project '%s' for request '%s' did not define any members." % (request.project, request.name))
+                else:
+                    for member_name in project.members:
+                        member = self.client.getUser(member_name)
+                        if not member:
+                            bad_reasons.append("User '%s' in project '%s' is not defined." % (request.project, request.name))
+                        elif not member.sshpubstring:
+                            bad_reasons.append("User '%s' in project '%s' does not have a ssh-key." % (request.project, request.name))
+                        elif not self.client.validate_ssh_pub_key(member.sshpubstring):
+                            bad_reasons.append("User '%s' in project '%s' has an invalid ssh-key." % (request.project, request.name))
+
+        if not bad_reasons:
+            return True
+        else:
+            raise VC3InvalidRequest(' '.join(bad_reasons))
 
     def state_new(self, request):
         '''
         Validates all new requests. 
         '''
         self.log.debug('processing new request %s' % request.name)
-        if self.request_is_valid(request):
-            return ('validated', None)
-        self.log.warning("Invalid Request: %s" % str(e))
-        return ('terminated', 'Invalid request: %s' % e.reason)
+
+        try:
+            if self.request_is_valid(request):
+                return ('validated', None)
+        except VC3InvalidRequest, e:
+            self.log.warning("Invalid Request: %s" % str(e))
+            return ('terminated', 'Invalid request: %s' % e.reason)
 
     def state_validated(self, request):
         self.log.debug('waiting for headnode to come online for %s' % request.name)
