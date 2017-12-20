@@ -112,6 +112,10 @@ class HandleHeadNodes(VC3Task):
 
     def terminate_server(self, request):
         try:
+            if not request.headnode:
+                request.headnode = {}
+                request.headnode['state'] = 'terminated'
+
             if request.headnode['state'] == 'terminated':
                 return
 
