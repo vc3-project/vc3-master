@@ -90,7 +90,7 @@ class HandleRequests(VC3Task):
 
         if next_state == 'terminated':
             self.log.debug('request %s is done' % request.name)
-            (next_state, reason) = ('terminated', None)
+            (next_state, reason) = ('terminated', request.state_reason)
 
         if next_state is not request.state or reason is not request.state_reason:
             self.log.debug("request '%s'  state '%s' -> %s (%s)'", request.name, request.state, next_state, str(reason))
