@@ -90,7 +90,6 @@ class HandleRequests(VC3Task):
 
         if next_state == 'terminated':
             self.log.debug('request %s is done' % request.name)
-            (next_state, reason) = ('terminated', request.state_reason)
 
         if next_state is not request.state or reason is not request.state_reason:
             self.log.debug("request '%s'  state '%s' -> %s (%s)'", request.name, request.state, next_state, str(reason))
@@ -152,7 +151,7 @@ class HandleRequests(VC3Task):
                 return ('validated', None)
         except VC3InvalidRequest, e:
             self.log.warning("Invalid Request: %s" % str(e))
-            return ('terminated', 'Invalid request: %s' % e.reason)
+            return ('terminated', 'Invalid request: %s' % str(e))
 
     def state_validated(self, request):
         self.log.debug('waiting for headnode to come online for %s' % request.name)
