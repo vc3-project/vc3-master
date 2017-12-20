@@ -125,11 +125,11 @@ class HandleRequests(VC3Task):
                         try:
                             member = self.client.getUser(member_name)
                             if not member.sshpubstring:
-                                bad_reasons.append("User '%s' in project '%s' does not have a ssh-key." % (request.project, request.name))
+                                bad_reasons.append("User '%s' in project '%s' does not have a ssh-key." % (member_name, request.project))
                             elif not self.client.validate_ssh_pub_key(member.sshpubstring):
-                                bad_reasons.append("User '%s' in project '%s' has an invalid ssh-key." % (request.project, request.name))
+                                bad_reasons.append("User '%s' in project '%s' has an invalid ssh-key." % (member_name, request.project))
                         except InfoEntityMissingException:
-                            bad_reasons.append("User '%s' in project '%s' is not defined." % (request.project, request.name))
+                            bad_reasons.append("User '%s' in project '%s' is not defined." % (member_name, request.project))
                 else:
                     bad_reasons.append("Project '%s' for request '%s' did not define any members." % (request.project, request.name))
             except InfoEntityMissingException:
