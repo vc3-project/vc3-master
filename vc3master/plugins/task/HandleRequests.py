@@ -148,6 +148,7 @@ class HandleRequests(VC3Task):
 
         try:
             if self.request_is_valid(request):
+                self.create_headnode_nodeset(request)
                 return ('validated', None)
         except VC3InvalidRequest, e:
             self.log.warning("Invalid Request: %s" % str(e))
@@ -159,14 +160,14 @@ class HandleRequests(VC3Task):
         # set headnode manually:
         #request.headnode = { 'state' : 'running', 'ip' : 'condor-dev.virtualclusters.org' }
 
-        if request.headnode is None:
-            return ('validated', None)
-        elif request.headnode['state'] == 'failure':
+        headnode = self.client.getNodeset(request.headnode)
+
+        if request.headnode.state == 'failure':
             return ('validated', 'Failure when launching headnode. Please terminate request.')
-        elif request.headnode['state'] == 'running':
+        elif request.headnode.state == 'running':
             return ('initialized', 'Waiting for factory to start filling the request.')
         else:
-            return ('validated', None)
+            return ('validated', 'Waiting for headnode to come online.')
 
 
     def state_initialized(self, request):
@@ -227,6 +228,8 @@ class HandleRequests(VC3Task):
 
     def state_cleanup(self, request):
         self.log.debug('collecting garbage for request %s' % request.name)
+
+        self.delete_headnode_nodeset(request)
 
         # to fill cleanup here!
         if self.is_everything_cleaned_up(request):
@@ -467,10 +470,8 @@ class HandleRequests(VC3Task):
 
     def is_everything_cleaned_up(self, request):
         # here we want to check the state of the headnode
-
-        if request.headnode['state'] == 'terminated':
+        if not request.headnode:
             return True
-
         return False
 
     def job_count_with_state(self, request, state):
@@ -550,6 +551,32 @@ class HandleRequests(VC3Task):
             self.log.debug("Retrieved %s for name %s" % ( nodeset, nodeset_name))
             nodesets.append(nodeset)
         return nodesets
+
+    def create_headnode_nodeset(self, request):
+        request.headnode = 'headnode-for-' + request.name
+
+        headnode = self.client.defineNodeset(
+                name = request.headnode,
+                request.owner, node_number = 1,
+                owner = request.owner,
+                app_type = 'htcondor',     # should depend on the given nodeset.
+                app_role = 'headnode', 
+                environment = None,
+                description = 'Headnode nodeset automatically created for request ' + request.name
+                displayname = request.headnode)
+
+        self.client.storeNodeset(headnode)
+
+    def delete_headnode_nodeset(self, request):
+        if request.headnode:
+            try:
+                headnode = self.client.getNodeset(request.headnode)
+
+                if headnode.state == 'terminated':
+                    self.client.deleteNodeset(headnode)
+                    request.headnode = None
+            except Exception, e:
+                self.log.debug("Could not delete headnode nodeset '%s'." % (request.headnode,))
 
 
 class VC3InvalidRequest(Exception):
