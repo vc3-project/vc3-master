@@ -9,7 +9,7 @@ import json
 import math
 
 from vc3master.task import VC3Task
-from vc3infoservice.infoclient import InfoConnectionFailure
+from vc3infoservice.infoclient import InfoConnectionFailure,InfoEntityMissingException
 
 import pluginmanager as pm
 import traceback
@@ -90,7 +90,6 @@ class HandleRequests(VC3Task):
 
         if next_state == 'terminated':
             self.log.debug('request %s is done' % request.name)
-            (next_state, reason) = ('terminated', None)
 
         if next_state is not request.state or reason is not request.state_reason:
             self.log.debug("request '%s'  state '%s' -> %s (%s)'", request.name, request.state, next_state, str(reason))
@@ -112,17 +111,47 @@ class HandleRequests(VC3Task):
         return state in ['terminating', 'cleanup', 'terminated']
 
     def request_is_valid(self, request):
-        return True
+
+        bad_reasons = []
+
+        if not request.project:
+            bad_reasons.append("Request '%s' does not belong to any project." % request.name)
+        else:
+            try:
+                project = self.client.getProject(request.project)
+
+                if project.members:
+                    for member_name in project.members:
+                        try:
+                            member = self.client.getUser(member_name)
+                            if not member.sshpubstring:
+                                bad_reasons.append("User '%s' in project '%s' does not have a ssh-key." % (member_name, request.project))
+                            elif not self.client.validate_ssh_pub_key(member.sshpubstring):
+                                bad_reasons.append("User '%s' in project '%s' has an invalid ssh-key." % (member_name, request.project))
+                        except InfoEntityMissingException:
+                            bad_reasons.append("User '%s' in project '%s' is not defined." % (member_name, request.project))
+                else:
+                    bad_reasons.append("Project '%s' for request '%s' did not define any members." % (request.project, request.name))
+            except InfoEntityMissingException:
+                bad_reasons.append("Project '%s' for request '%s' is not defined." % (request.project, request.name))
+
+        if not bad_reasons:
+            return True
+        else:
+            raise VC3InvalidRequest(' '.join(bad_reasons))
 
     def state_new(self, request):
         '''
         Validates all new requests. 
         '''
         self.log.debug('processing new request %s' % request.name)
-        if self.request_is_valid(request):
-            return ('validated', None)
-        self.log.warning("Invalid Request: %s" % str(e))
-        return ('terminated', 'Invalid request: %s' % e.reason)
+
+        try:
+            if self.request_is_valid(request):
+                return ('validated', None)
+        except VC3InvalidRequest, e:
+            self.log.warning("Invalid Request: %s" % str(e))
+            return ('terminated', 'Invalid request: %s' % str(e))
 
     def state_validated(self, request):
         self.log.debug('waiting for headnode to come online for %s' % request.name)
@@ -381,7 +410,10 @@ class HandleRequests(VC3Task):
             collector = request.headnode['ip']
             s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
-            s += ' -- vc3-glidein -c %s -C %s -p %s' % (collector, collector, request.headnode['condor_password_filename'])
+            try:
+                s += ' -- vc3-glidein -c %s -C %s -p %s' % (collector, collector, request.headnode['condor_password_filename'])
+            except KeyError:
+                raise VC3InvalidRequest("headnode for '%s' did not define condor_password_filename" % request.name)
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
             s += ' -- work_queue_worker -M %s -t 1800' % (request.name,)
