@@ -157,9 +157,6 @@ class HandleRequests(VC3Task):
     def state_validated(self, request):
         self.log.debug('waiting for headnode to come online for %s' % request.name)
 
-        # set headnode manually:
-        #request.headnode = { 'state' : 'running', 'ip' : 'condor-dev.virtualclusters.org' }
-
         headnode = self.client.getNodeset(request.headnode)
 
         if request.headnode.state == 'failure':
@@ -306,11 +303,14 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorssh.host',  resource.accesshost)
             config.set(section_name, 'batchsubmit.condorssh.port',  str(resource.accessport))
             config.set(section_name, 'batchsubmit.condorssh.authprofile', allocation.name)
-            config.set(section_name, 'executable',          '       %(builder)s')
+            config.set(section_name, 'executable',                  '%(builder)s')
 
-            if request.headnode and request.headnode.has_key('condor_password_environment'):
-                config.set(section_name, 'condor_password_filename',    request.headnode['condor_password_filename'])
-                config.set(section_name, 'condor_password_environment', request.headnode['condor_password_environment'])
+            if nodeset.app_type == 'htcondor' and nodeset.app_role == 'worker-nodes':
+                try:
+                    headnode = self.client.getNodeset(request.headnode)
+                    config.set(section_name, 'condor_password', headnode.app_sectoken)
+                except Exception, e:
+                    self.log.warning("Could not get headnode condor password for request '%s'. Continuing without password (this probably won't work).", request.name )
 
         elif resource.accesstype == 'cloud':
             config.set(section_name, 'batchsubmitplugin',          'CondorEC2')
@@ -322,7 +322,7 @@ class HandleRequests(VC3Task):
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
 
-        self.add_environment_to_queuesconf(config, request, section_name, nodeset, request.headnode)
+        self.add_environment_to_queuesconf(config, request, section_name, nodeset)
 
         self.log.debug("Completed filling in config for allocation %s" % allocation.name)
 
@@ -410,13 +410,17 @@ class HandleRequests(VC3Task):
 
         s = ''
         if nodeset.app_type == 'htcondor':
-            collector = request.headnode['ip']
+
+            collector = 'missing'
+            try:
+                headnode  = self.client.getNodeset(request.headnode)
+                collector = headnode.url # HACK: Using URL field for now!
+            except Exception, e:
+                self.log.warning("Could not find collector for request '%s'.")
+
             s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
-            try:
-                s += ' -- vc3-glidein -c %s -C %s -p %s' % (collector, collector, request.headnode['condor_password_filename'])
-            except KeyError:
-                raise VC3InvalidRequest("headnode for '%s' did not define condor_password_filename" % request.name)
+            s += ' -- vc3-glidein -c %s -C %s -p %s' % (collector, collector, 'condor.password')
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
             s += ' -- work_queue_worker -M %s -t 1800' % (request.name,)
@@ -426,7 +430,7 @@ class HandleRequests(VC3Task):
         return s
 
 
-    def add_environment_to_queuesconf(self, config, request, section_name, nodeset, headnode):
+    def add_environment_to_queuesconf(self, config, request, section_name, nodeset):
         #s  = " --revar 'VC3_.*'"
         s  = ' '
         s += ' --home=.'
@@ -436,9 +440,6 @@ class HandleRequests(VC3Task):
 
         if nodeset.environment is not None:
             envs.append(nodeset.environment)
-
-        if headnode and headnode.has_key('condor_password_environment'):
-            envs.append(headnode['condor_password_environment'])
 
         for env_name in envs:
             if nodeset.environment is not None:
