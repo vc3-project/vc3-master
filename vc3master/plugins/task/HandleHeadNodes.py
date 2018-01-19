@@ -108,7 +108,6 @@ class HandleHeadNodes(VC3Task):
 
         try:
             self.client.storeNodeset(headnode)
-            self.client.storeRequest(request)
         except Exception, e:
             self.log.warning("Storing the new request state failed. (%s)", e)
             self.log.warning(traceback.format_exc(None))
