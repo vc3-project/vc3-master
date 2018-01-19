@@ -39,9 +39,20 @@ class HandleRequests(VC3Task):
                         self.process_request(r)
                     except VC3InvalidRequest, e:
                         self.log.warning("Request %s is not valid. (%s)", r.name, e)
+                        r.state = 'failure'
+                        r.state_reason = 'Request invalid: ' + str(e)
                     except Exception, e:
                         self.log.warning("Request %s had a exception (%s)", r.name, e)
                         self.log.debug(traceback.format_exc(None))
+                        r.state = 'failure'
+                        r.state_reason = str(e)
+
+                    try:
+                        self.client.storeRequest(request)
+                    except Exception, e:
+                        self.log.warning("Storing the new request state failed. (%s)", e)
+                        self.log.warning(traceback.format_exc(None))
+
         except InfoConnectionFailure, e:
             self.log.warning("Could not read requests from infoservice. (%s)", e)
 
@@ -98,14 +109,9 @@ class HandleRequests(VC3Task):
         else:
             self.log.debug("request '%s' remained in state '%s'", request.name, request.state)
 
-        try:
-            if request.state != 'new' and request.state != 'validated':
-                self.add_queues_conf(request, nodesets)
-                self.add_auth_conf(request)
-            self.client.storeRequest(request)
-        except Exception, e:
-            self.log.warning("Storing the new request state failed. (%s)", e)
-            self.log.warning(traceback.format_exc(None))
+        if request.state != 'new' and request.state != 'validated':
+            self.add_queues_conf(request, nodesets)
+            self.add_auth_conf(request)
 
     def is_finishing_state(self, state):
         return state in ['terminating', 'cleanup', 'terminated']
@@ -566,8 +572,6 @@ class HandleRequests(VC3Task):
                 environment = None,
                 description = 'Headnode nodeset automatically created for request ' + request.name,
                 displayname = request.headnode)
-
-        self.client.storeNodeset(headnode)
 
     def delete_headnode_nodeset(self, request):
         if request.headnode:
