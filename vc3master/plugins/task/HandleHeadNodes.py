@@ -175,7 +175,7 @@ class HandleHeadNodes(VC3Task):
         except subprocess.CalledProcessError:
             return False
 
-    def boot_server(self, request):
+    def boot_server(self, request, headnode):
         try:
             server = self.nova.servers.find(name=request.name)
             self.log.info('Found headnode at %s for request %s', request.headnode, request.name)
