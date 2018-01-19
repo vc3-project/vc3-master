@@ -568,7 +568,7 @@ class HandleRequests(VC3Task):
                 owner = request.owner,
                 node_number = 1,
                 app_type = 'htcondor',     # should depend on the given nodeset.
-                app_role = 'headnode', 
+                app_role = 'head-node', 
                 environment = None,
                 description = 'Headnode nodeset automatically created for request ' + request.name,
                 displayname = request.headnode)

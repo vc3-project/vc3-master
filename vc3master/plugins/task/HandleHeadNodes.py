@@ -189,7 +189,7 @@ class HandleHeadNodes(VC3Task):
         return server
 
 
-    def initialize_server(self, request):
+    def initialize_server(self, request, headnode):
 
         # if we are already initializing this headnode
         if self.initializers.has_key(request.name):
