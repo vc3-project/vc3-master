@@ -159,9 +159,9 @@ class HandleRequests(VC3Task):
 
         headnode = self.client.getNodeset(request.headnode)
 
-        if request.headnode.state == 'failure':
+        if headnode.state == 'failure':
             return ('validated', 'Failure when launching headnode. Please terminate request.')
-        elif request.headnode.state == 'running':
+        elif headnode.state == 'running':
             return ('initialized', 'Waiting for factory to start filling the request.')
         else:
             return ('validated', 'Waiting for headnode to come online.')
