@@ -48,7 +48,7 @@ class HandleRequests(VC3Task):
                         r.state_reason = str(e)
 
                     try:
-                        self.client.storeRequest(request)
+                        self.client.storeRequest(r)
                     except Exception, e:
                         self.log.warning("Storing the new request state failed. (%s)", e)
                         self.log.warning(traceback.format_exc(None))
