@@ -559,12 +559,12 @@ class HandleRequests(VC3Task):
 
         headnode = self.client.defineNodeset(
                 name = request.headnode,
-                request.owner, node_number = 1,
                 owner = request.owner,
+                node_number = 1,
                 app_type = 'htcondor',     # should depend on the given nodeset.
                 app_role = 'headnode', 
                 environment = None,
-                description = 'Headnode nodeset automatically created for request ' + request.name
+                description = 'Headnode nodeset automatically created for request ' + request.name,
                 displayname = request.headnode)
 
         self.client.storeNodeset(headnode)
