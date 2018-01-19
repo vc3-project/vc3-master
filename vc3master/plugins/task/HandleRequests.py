@@ -579,7 +579,7 @@ class HandleRequests(VC3Task):
                 headnode = self.client.getNodeset(request.headnode)
 
                 if headnode.state == 'terminated':
-                    self.client.deleteNodeset(headnode)
+                    self.client.deleteNodeset(request.headnode)
                     request.headnode = None
             except Exception, e:
                 self.log.debug("Could not delete headnode nodeset '%s'." % (request.headnode,))
