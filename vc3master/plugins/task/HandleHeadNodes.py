@@ -2,7 +2,7 @@
 
 
 from vc3master.task import VC3Task
-from vc3infoservice.infoclient import InfoConnectionFailure
+from vc3infoservice.infoclient import InfoConnectionFailure, InfoEntityMissingException
 
 from base64 import b64encode
 import pluginmanager as pm
