@@ -583,6 +583,7 @@ class HandleRequests(VC3Task):
                     request.headnode = None
             except Exception, e:
                 self.log.debug("Could not delete headnode nodeset '%s'." % (request.headnode,))
+                self.log.debug(traceback.format_exc(None))
 
 
 class VC3InvalidRequest(Exception):
