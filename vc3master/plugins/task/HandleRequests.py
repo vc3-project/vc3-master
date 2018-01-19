@@ -308,6 +308,7 @@ class HandleRequests(VC3Task):
             if nodeset.app_type == 'htcondor' and nodeset.app_role == 'worker-nodes':
                 try:
                     headnode = self.client.getNodeset(request.headnode)
+                    config.set(section_name, 'condor_password_filename', request.name + '-condor.passwd')
                     config.set(section_name, 'condor_password', headnode.app_sectoken)
                 except Exception, e:
                     self.log.warning("Could not get headnode condor password for request '%s'. Continuing without password (this probably won't work).", request.name )
@@ -420,7 +421,7 @@ class HandleRequests(VC3Task):
 
             s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
-            s += ' -- vc3-glidein -c %s -C %s -p %s' % (collector, collector, 'condor.password')
+            s += ' -- vc3-glidein -c %s -C %s -p %s' % (collector, collector, '%(condor_password_filename)s')
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
             s += ' -- work_queue_worker -M %s -t 1800' % (request.name,)
