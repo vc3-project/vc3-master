@@ -72,7 +72,6 @@ class HandleHeadNodes(VC3Task):
                     except Exception, e:
                         self.log.warning("Request %s had an exception (%s)", r.name, e)
                         self.log.debug(traceback.format_exc(None))
-                        raise e
         except InfoConnectionFailure, e:
             self.log.warning("Could not read requests from infoservice. (%s)", e)
 
