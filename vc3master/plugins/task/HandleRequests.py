@@ -563,6 +563,8 @@ class HandleRequests(VC3Task):
     def create_headnode_nodeset(self, request):
         request.headnode = 'headnode-for-' + request.name
 
+        self.log.debug("Storing new headnode spec '%s'", request.headnode)
+
         headnode = self.client.defineNodeset(
                 name = request.headnode,
                 owner = request.owner,
@@ -573,12 +575,15 @@ class HandleRequests(VC3Task):
                 description = 'Headnode nodeset automatically created for request ' + request.name,
                 displayname = request.headnode)
 
+        self.client.storeNodeset(headnode)
+
     def delete_headnode_nodeset(self, request):
         if request.headnode:
             try:
                 headnode = self.client.getNodeset(request.headnode)
 
                 if headnode.state == 'terminated':
+                    self.log.debug("Deleting headnode spec '%s'", request.headnode)
                     self.client.deleteNodeset(request.headnode)
                     request.headnode = None
             except Exception, e:

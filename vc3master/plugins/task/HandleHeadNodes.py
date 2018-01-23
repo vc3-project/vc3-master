@@ -105,6 +105,7 @@ class HandleHeadNodes(VC3Task):
                 self.log.warning("Could not find headnode information for %s", request.name)
                 raise 
         else:
+            # Request has not yet created headnode nodeset spec, so we simply return.
             return
 
         try:
