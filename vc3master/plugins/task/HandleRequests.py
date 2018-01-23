@@ -209,9 +209,9 @@ class HandleRequests(VC3Task):
             self.log.warning('Failure: status of request %s went away.' % request.name)
             return ('terminating', 'Failure: status of request %s went away.' % request.name)
         elif total_of_nodes > running:
-            return ('running', 'growing' % (total_of_nodes - running))
+            return ('running', 'growing %d' % (total_of_nodes - running))
         elif total_of_nodes < running:
-            return ('running', 'shrinking' % (running - total_of_nodes))
+            return ('running', 'shrinking %d' % (running - total_of_nodes))
         else:
             return ('running', 'all requested jobs are running.')
 
