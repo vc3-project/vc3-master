@@ -103,6 +103,7 @@ class HandleHeadNodes(VC3Task):
 
             except InfoEntityMissingException:
                 self.log.error("Could not find headnode information for %s", request.name)
+                return
         else:
             # Request has not yet created headnode nodeset spec, so we simply return.
             return
