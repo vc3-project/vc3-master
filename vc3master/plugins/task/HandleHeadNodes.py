@@ -151,6 +151,7 @@ class HandleHeadNodes(VC3Task):
         ip = self.__get_ip(request)
 
         if ip is None:
+            self.log.debug('Headnode for %s does not have an address yet.', request.name)
             return False
 
         try:
@@ -174,6 +175,7 @@ class HandleHeadNodes(VC3Task):
 
             return True
         except subprocess.CalledProcessError:
+            self.log.debug('Headnode for %s running at %s cannot be used for login yet.', request.name, ip)
             return False
 
     def boot_server(self, request, headnode):
@@ -299,6 +301,7 @@ class HandleHeadNodes(VC3Task):
             server = self.nova.servers.find(name=request.name)
 
             if server.status != 'ACTIVE':
+                self.log.debug("Headnode for request %s is not active yet.", request.name)
                 return None
 
         except Exception, e:
