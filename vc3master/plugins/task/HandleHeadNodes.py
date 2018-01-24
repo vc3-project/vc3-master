@@ -85,20 +85,24 @@ class HandleHeadNodes(VC3Task):
             try:
                 headnode = self.client.getNodeset(request.headnode)
 
-                if headnode.state == 'terminated':
-                    return
+                try:
+                    if headnode.state == 'terminated':
+                        return
 
-                if request.state == 'cleanup' or request.state == 'terminated':
-                    self.terminate_server(request, headnode)
+                    if request.state == 'cleanup' or request.state == 'terminated':
+                        self.terminate_server(request, headnode)
 
-                if headnode.state == 'new':
-                    self.create_server(request, headnode)
+                    if headnode.state == 'new':
+                        self.create_server(request, headnode)
 
-                if headnode.state == 'booting' and self.check_if_online(request, headnode):
-                    self.initialize_server(request, headnode)
+                    if headnode.state == 'booting' and self.check_if_online(request, headnode):
+                        self.initialize_server(request, headnode)
 
-                if headnode.state == 'initializing' and self.check_if_done_init(request, headnode):
-                    self.report_running_server(request, headnode)
+                    if headnode.state == 'initializing' and self.check_if_done_init(request, headnode):
+                        self.report_running_server(request, headnode)
+
+                except Exception, e:
+                    headnode.state = 'failure'
 
             except InfoEntityMissingException:
                 self.log.error("Could not find headnode information for %s", request.name)
