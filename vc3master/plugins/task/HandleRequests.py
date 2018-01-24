@@ -421,7 +421,7 @@ class HandleRequests(VC3Task):
             collector = 'missing'
             try:
                 headnode  = self.client.getNodeset(request.headnode)
-                collector = headnode.url # HACK: Using URL field for now!
+                collector = headnode.app_host
             except Exception, e:
                 self.log.warning("Could not find collector for request '%s'.")
 

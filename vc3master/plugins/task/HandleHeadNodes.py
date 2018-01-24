@@ -205,7 +205,7 @@ class HandleHeadNodes(VC3Task):
         self.log.info('Initializing new server at %s for request %s', request.headnode, request.name)
 
         headnode.state = 'initializing'
-        headnode.url   = self.__get_ip(request) # HACK! using .url instead of a more appripiate field.
+        headnode.app_host = self.__get_ip(request)
 
         os.environ['ANSIBLE_HOST_KEY_CHECKING']='False'
 
@@ -225,7 +225,7 @@ class HandleHeadNodes(VC3Task):
                     '--key-file',
                     self.node_private_key_file,
                     '--inventory',
-                    headnode.url + ',',
+                    headnode.app_host + ',',
                     ],
                 cwd = self.ansible_path,
                 stdout=self.ansible_debug,
