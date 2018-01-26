@@ -93,15 +93,19 @@ class HandleHeadNodes(VC3Task):
                         self.terminate_server(request, headnode)
 
                     if headnode.state == 'new':
+                        self.log.info('Creating new nodeset %s for request %s', request.headnode, request.name)
                         self.create_server(request, headnode)
 
                     if headnode.state == 'booting' and self.check_if_online(request, headnode):
+                        self.log.info('Initializing new server %s for request %s', request.headnode, request.name)
                         self.initialize_server(request, headnode)
 
                     if headnode.state == 'initializing' and self.check_if_done_init(request, headnode):
+                        self.log.info('Done initializers server %s for request %s', request.headnode, request.name)
                         self.report_running_server(request, headnode)
 
                 except Exception, e:
+                    self.initializers[request.name] = None
                     headnode.state = 'failure'
 
             except InfoEntityMissingException:
@@ -198,11 +202,9 @@ class HandleHeadNodes(VC3Task):
 
     def initialize_server(self, request, headnode):
 
-        # if we are already initializing this headnode
+        # if we already initialized this headnode
         if self.initializers.has_key(request.name):
             return
-
-        self.log.info('Initializing new server at %s for request %s', request.headnode, request.name)
 
         headnode.state = 'initializing'
         headnode.app_host = self.__get_ip(request)
