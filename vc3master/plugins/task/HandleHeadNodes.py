@@ -96,7 +96,7 @@ class HandleHeadNodes(VC3Task):
         try:
             if headnode is None:
                 if request.state == 'validated':
-                    headnode = self.create_headnode_nodeset(request.headnode)
+                    headnode = self.create_headnode_nodeset(request)
                 elif request.state == 'cleanup' or request.state == 'terminated':
                     # Nothing to do, the headnode has been cleaned-up
                     return
@@ -317,30 +317,30 @@ class HandleHeadNodes(VC3Task):
                 keys[member] = user.sshpubstring
         return keys
 
-    def create_headnode_nodeset(self, name):
-        self.log.debug("Storing new headnode spec '%s'", name)
+    def create_headnode_nodeset(self, request):
+        self.log.debug("Storing new headnode spec '%s'", request.headnode)
 
         headnode = self.client.defineNodeset(
-                name = name,
+                name = request.headnode,
                 owner = request.owner,
                 node_number = 1,
                 app_type = 'htcondor',     # should depend on the given nodeset!
                 app_role = 'head-node', 
                 environment = None,
-                description = 'Headnode nodeset automatically created: ' + name,
-                displayname = name)
+                description = 'Headnode nodeset automatically created: ' + request.headnode,
+                displayname = request.headnode)
 
         self.client.storeNodeset(headnode)
         return headnode
 
-    def delete_headnode_nodeset(self, name):
-        if name:
+    def delete_headnode_nodeset(self, request):
+        if request.headnode:
             try:
-                headnode = self.client.getNodeset(name)
-                self.log.debug("Deleting headnode spec '%s'", name)
-                self.client.deleteNodeset(name)
+                headnode = self.client.getNodeset(request.headnode)
+                self.log.debug("Deleting headnode spec '%s'", request.headnode)
+                self.client.deleteNodeset(request.headnode)
             except Exception, e:
-                self.log.debug("Could not delete headnode nodeset '%s'." % (name,))
+                self.log.debug("Could not delete headnode nodeset '%s'." % (request.headnode,))
                 self.log.debug(traceback.format_exc(None))
 
     def __get_ip(self, request):
