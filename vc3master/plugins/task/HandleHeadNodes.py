@@ -157,7 +157,7 @@ class HandleHeadNodes(VC3Task):
         finally:
             headnode.state = 'terminated'
 
-        self.delete_headnode_nodeset(request.name)
+        self.delete_headnode_nodeset(request)
         return
 
     def create_server(self, request, headnode):
