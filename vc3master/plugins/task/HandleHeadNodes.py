@@ -81,39 +81,51 @@ class HandleHeadNodes(VC3Task):
 
         self.log.debug("Processing headnode for '%s'", request.name)
 
-        if request.headnode:
-            try:
-                headnode = self.client.getNodeset(request.headnode)
-
-                try:
-                    if headnode.state == 'terminated':
-                        return
-
-                    if request.state == 'cleanup' or request.state == 'terminated':
-                        self.terminate_server(request, headnode)
-
-                    if headnode.state == 'new':
-                        self.log.info('Creating new nodeset %s for request %s', request.headnode, request.name)
-                        self.create_server(request, headnode)
-
-                    if headnode.state == 'booting' and self.check_if_online(request, headnode):
-                        self.log.info('Initializing new server %s for request %s', request.headnode, request.name)
-                        self.initialize_server(request, headnode)
-
-                    if headnode.state == 'initializing' and self.check_if_done_init(request, headnode):
-                        self.log.info('Done initializers server %s for request %s', request.headnode, request.name)
-                        self.report_running_server(request, headnode)
-
-                except Exception, e:
-                    self.initializers[request.name] = None
-                    headnode.state = 'failure'
-
-            except InfoEntityMissingException:
-                self.log.error("Could not find headnode information for %s", request.name)
-                return
-        else:
-            # Request has not yet created headnode nodeset spec, so we simply return.
+        if not request.headnode:
+            # Request has not yet indicated the name it wants for the headnode, so we simply return.
             return
+
+        headnode = None
+        try:
+            headnode = self.client.getNodeset(request.headnode)
+        except InfoEntityMissingException:
+            pass
+        except InfoConnectionFailure:
+            return
+
+        try:
+            if headnode is None:
+                if request.state == 'validated':
+                    headnode = self.create_headnode_nodeset(request.headnode)
+                elif request.state == 'cleanup' or request.state == 'terminated':
+                    # Nothing to do, the headnode has been cleaned-up
+                    return
+                else:
+                    # Something went wrong, the headnode should still be there.
+                    self.log.error("Could not find headnode information for %s", request.name)
+                    return
+
+            if headnode.state == 'terminated':
+                return
+
+            if request.state == 'cleanup' or request.state == 'terminated':
+                self.terminate_server(request, headnode)
+
+            if headnode.state == 'new':
+                self.log.info('Creating new nodeset %s for request %s', request.headnode, request.name)
+                self.create_server(request, headnode)
+
+            if headnode.state == 'booting' and self.check_if_online(request, headnode):
+                self.log.info('Initializing new server %s for request %s', request.headnode, request.name)
+                self.initialize_server(request, headnode)
+
+            if headnode.state == 'initializing' and self.check_if_done_init(request, headnode):
+                self.log.info('Done initializers server %s for request %s', request.headnode, request.name)
+                self.report_running_server(request, headnode)
+
+        except Exception, e:
+            self.initializers[request.name] = None
+            headnode.state = 'failure'
 
         try:
             self.client.storeNodeset(headnode)
@@ -121,29 +133,27 @@ class HandleHeadNodes(VC3Task):
             self.log.warning("Storing the new request state failed. (%s)", e)
             self.log.warning(traceback.format_exc(None))
 
-
     def terminate_server(self, request, headnode):
         try:
-            if headnode.state == 'terminated':
-                return
+            if headnode.state != 'terminated':
+                if self.initializers[request.name]:
+                    try:
+                        proc = self.initializers[request.name]
+                        self.initializers[request.name] = None
+                        proc.terminate()
+                    except Exception, e:
+                        self.log.warning('Exception while killing initializer for %s: %s', request.name, e)
 
-            if self.initializers[request.name]:
-                try:
-                    proc = self.initializers[request.name]
-                    self.initializers[request.name] = None
-                    proc.terminate()
-                except Exception, e:
-                    self.log.warning('Exception while killing initializer for %s: %s', request.name, e)
-
-            server = self.nova.servers.find(name=request.name)
-            self.log.debug('Teminating headnode %s for request %s', request.headnode, request.name)
-            server.delete()
-
+                server = self.nova.servers.find(name=request.name)
+                self.log.debug('Teminating headnode %s for request %s', request.headnode, request.name)
+                server.delete()
         except Exception, e:
             self.log.warning('Could not find headnode instance for request %s (%s)', request.name, e)
+        finally:
+            headnode.state = 'terminated'
 
-        headnode.state = 'terminated'
-
+        self.delete_headnode_nodeset(self, request.name)
+        return
 
     def create_server(self, request, headnode):
         server = self.boot_server(request, headnode)
@@ -301,6 +311,32 @@ class HandleHeadNodes(VC3Task):
             else:
                 keys[member] = user.sshpubstring
         return keys
+
+    def create_headnode_nodeset(self, name):
+        self.log.debug("Storing new headnode spec '%s'", name)
+
+        headnode = self.client.defineNodeset(
+                name = request.headnode,
+                owner = request.owner,
+                node_number = 1,
+                app_type = 'htcondor',     # should depend on the given nodeset!
+                app_role = 'head-node', 
+                environment = None,
+                description = 'Headnode nodeset automatically created: ' + name,
+                displayname = request.headnode)
+
+        self.client.storeNodeset(headnode)
+        return headnode
+
+    def delete_headnode_nodeset(self, name):
+        if name:
+            try:
+                headnode = self.client.getNodeset(name)
+                self.log.debug("Deleting headnode spec '%s'", name)
+                self.client.deleteNodeset(name)
+            except Exception, e:
+                self.log.debug("Could not delete headnode nodeset '%s'." % (name,))
+                self.log.debug(traceback.format_exc(None))
 
     def __get_ip(self, request):
         try:

@@ -142,6 +142,9 @@ class HandleRequests(VC3Task):
                 bad_reasons.append("Project '%s' for request '%s' is not defined." % (request.project, request.name))
 
         if not bad_reasons:
+            # fill-in the desired headnode name. This will eventually come from
+            # the nodesets when the request is first created.
+            request.headnode = 'headnode-for-' + request.name
             return True
         else:
             raise VC3InvalidRequest(' '.join(bad_reasons))
@@ -154,7 +157,6 @@ class HandleRequests(VC3Task):
 
         try:
             if self.request_is_valid(request):
-                self.create_headnode_nodeset(request)
                 return ('validated', None)
         except VC3InvalidRequest, e:
             self.log.warning("Invalid Request: %s" % str(e))
@@ -231,8 +233,6 @@ class HandleRequests(VC3Task):
 
     def state_cleanup(self, request):
         self.log.debug('collecting garbage for request %s' % request.name)
-
-        self.delete_headnode_nodeset(request)
 
         # to fill cleanup here!
         if self.is_everything_cleaned_up(request):
@@ -477,10 +477,24 @@ class HandleRequests(VC3Task):
         config.set(section_name, 'executable.arguments', s)
 
     def is_everything_cleaned_up(self, request):
-        # here we want to check the state of the headnode
-        if not request.headnode:
-            return True
-        return False
+        headnode = None
+        if request.headnode:
+            try:
+                headnode = self.client.getNodeset(request.headnode)
+            except InfoConnectionFailure:
+                # We don't know if headnode has been cleared or not...
+                return False
+            except InfoEntityMissingException:
+                # Headnode is missing, and that's what we want
+                pass
+
+        if headnode:
+            return False
+        # if somethingElseStillThere:
+        #    return False
+
+        # everything has been cleaned up:
+        return True
 
     def job_count_with_state(self, request, state):
         if not request.statusraw:
@@ -559,37 +573,6 @@ class HandleRequests(VC3Task):
             self.log.debug("Retrieved %s for name %s" % ( nodeset, nodeset_name))
             nodesets.append(nodeset)
         return nodesets
-
-    def create_headnode_nodeset(self, request):
-        request.headnode = 'headnode-for-' + request.name
-
-        self.log.debug("Storing new headnode spec '%s'", request.headnode)
-
-        headnode = self.client.defineNodeset(
-                name = request.headnode,
-                owner = request.owner,
-                node_number = 1,
-                app_type = 'htcondor',     # should depend on the given nodeset.
-                app_role = 'head-node', 
-                environment = None,
-                description = 'Headnode nodeset automatically created for request ' + request.name,
-                displayname = request.headnode)
-
-        self.client.storeNodeset(headnode)
-
-    def delete_headnode_nodeset(self, request):
-        if request.headnode:
-            try:
-                headnode = self.client.getNodeset(request.headnode)
-
-                if headnode.state == 'terminated':
-                    self.log.debug("Deleting headnode spec '%s'", request.headnode)
-                    self.client.deleteNodeset(request.headnode)
-                    request.headnode = None
-            except Exception, e:
-                self.log.debug("Could not delete headnode nodeset '%s'." % (request.headnode,))
-                self.log.debug(traceback.format_exc(None))
-
 
 class VC3InvalidRequest(Exception):
     def __init__(self, reason, request = None):
