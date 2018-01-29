@@ -165,11 +165,15 @@ class HandleRequests(VC3Task):
     def state_validated(self, request):
         self.log.debug('waiting for headnode to come online for %s' % request.name)
 
-        headnode = self.client.getNodeset(request.headnode)
+        headnode = None
+        try:
+            headnode = self.client.getNodeset(request.headnode)
+        except InfoConnectionFailure, InfoEntityMissingException:
+            pass
 
-        if headnode.state == 'failure':
+        if headnode and headnode.state == 'failure':
             return ('validated', 'Failure when launching headnode. Please terminate request.')
-        elif headnode.state == 'running':
+        elif headnode and headnode.state == 'running':
             return ('initialized', 'Waiting for factory to start filling the request.')
         else:
             return ('validated', 'Waiting for headnode to come online.')
