@@ -321,7 +321,7 @@ class HandleHeadNodes(VC3Task):
         self.log.debug("Storing new headnode spec '%s'", name)
 
         headnode = self.client.defineNodeset(
-                name = request.headnode,
+                name = name,
                 owner = request.owner,
                 node_number = 1,
                 app_type = 'htcondor',     # should depend on the given nodeset!
