@@ -168,7 +168,9 @@ class HandleRequests(VC3Task):
         headnode = None
         try:
             headnode = self.client.getNodeset(request.headnode)
-        except InfoConnectionFailure, InfoEntityMissingException:
+        except InfoConnectionFailure:
+            pass
+        except InfoEntityMissingException:
             pass
 
         if headnode and headnode.state == 'failure':
