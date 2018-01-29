@@ -323,7 +323,7 @@ class HandleHeadNodes(VC3Task):
                 app_role = 'head-node', 
                 environment = None,
                 description = 'Headnode nodeset automatically created: ' + name,
-                displayname = request.headnode)
+                displayname = name)
 
         self.client.storeNodeset(headnode)
         return headnode
