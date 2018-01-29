@@ -124,8 +124,13 @@ class HandleHeadNodes(VC3Task):
                 self.report_running_server(request, headnode)
 
         except Exception, e:
+            self.log.debug("Error while processing headnode: %s", e)
+            self.log.warning(traceback.format_exc(None))
             self.initializers[request.name] = None
-            headnode.state = 'failure'
+            if headnode:
+                headnode.state = 'failure'
+            else:
+                raise
 
         try:
             self.client.storeNodeset(headnode)
