@@ -65,7 +65,7 @@ class HandleRequests(VC3Task):
         (next_state, reason) = (request.state, request.state_reason)
 
         if request.action and request.action == 'terminate':
-            if not self.is_finishing_state(next_state):
+            if not self.is_finishing_state(next_state) or request.state == 'failure':
                 (next_state, reason) = ('terminating', 'received terminate action')
 
         nodesets           = self.getNodesets(request)
@@ -119,7 +119,7 @@ class HandleRequests(VC3Task):
             self.add_auth_conf(request)
 
     def is_finishing_state(self, state):
-        return state in ['terminating', 'cleanup', 'terminated']
+        return state in ['failure', 'terminating', 'cleanup', 'terminated']
 
     def request_is_valid(self, request):
 
