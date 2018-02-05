@@ -105,9 +105,6 @@ class HandleHeadNodes(VC3Task):
                     self.log.error("Could not find headnode information for %s", request.name)
                     return
 
-            if headnode.state == 'terminated':
-                return
-
             if request.state == 'cleanup' or request.state == 'terminated':
                 self.terminate_server(request, headnode)
 
@@ -133,9 +130,12 @@ class HandleHeadNodes(VC3Task):
                 raise
 
         try:
-            self.client.storeNodeset(headnode)
+            if headnode.state == 'terminated':
+                self.delete_headnode_nodeset(request)
+            else:
+                self.client.storeNodeset(headnode)
         except Exception, e:
-            self.log.warning("Storing the new request state failed. (%s)", e)
+            self.log.warning("Storing the new headnode state failed. (%s)", e)
             self.log.warning(traceback.format_exc(None))
 
     def terminate_server(self, request, headnode):
@@ -156,9 +156,6 @@ class HandleHeadNodes(VC3Task):
             self.log.warning('Could not find headnode instance for request %s (%s)', request.name, e)
         finally:
             headnode.state = 'terminated'
-
-        self.delete_headnode_nodeset(request)
-        return
 
     def create_server(self, request, headnode):
         server = self.boot_server(request, headnode)
@@ -318,7 +315,7 @@ class HandleHeadNodes(VC3Task):
         return keys
 
     def create_headnode_nodeset(self, request):
-        self.log.debug("Storing new headnode spec '%s'", request.headnode)
+        self.log.debug("Creating new headnode spec '%s'", request.headnode)
 
         headnode = self.client.defineNodeset(
                 name = request.headnode,
@@ -330,7 +327,6 @@ class HandleHeadNodes(VC3Task):
                 description = 'Headnode nodeset automatically created: ' + request.headnode,
                 displayname = request.headnode)
 
-        self.client.storeNodeset(headnode)
         return headnode
 
     def delete_headnode_nodeset(self, request):
