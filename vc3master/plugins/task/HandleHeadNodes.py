@@ -127,11 +127,12 @@ class HandleHeadNodes(VC3Task):
                 else: 
                     self.log.debug('Headnode for %s could not yet be used for login.', request.name)
 
-            if headnode.state == 'initializing' and self.check_if_done_init(request, headnode):
-                self.log.info('Done initializing server %s for request %s', request.headnode, request.name)
-                self.report_running_server(request, headnode)
-            else:
-                self.log.debug('Waiting for headnode for %s to finish initialization.', request.name)
+            if headnode.state == 'initializing':
+                if self.check_if_done_init(request, headnode):
+                    self.log.info('Done initializing server %s for request %s', request.headnode, request.name)
+                    self.report_running_server(request, headnode)
+                else:
+                    self.log.debug('Waiting for headnode for %s to finish initialization.', request.name)
 
             if headnode.state == 'initializing' or headnode.state == 'running':
                 if self.check_if_online(request, headnode):
