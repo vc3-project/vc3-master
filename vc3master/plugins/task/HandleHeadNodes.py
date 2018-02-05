@@ -55,6 +55,11 @@ class HandleHeadNodes(VC3Task):
 
         self.initializers = {}
 
+        # if once running, a headnode cannot be contacted this many consecutive
+        # times, mark it as failure.
+        self.max_contact_failures = 5
+        self.contact_failures = {}
+
         self.log.debug("HandleHeadNodes VC3Task initialized.")
 
     def runtask(self):
@@ -112,18 +117,36 @@ class HandleHeadNodes(VC3Task):
                 self.log.info('Creating new nodeset %s for request %s', request.headnode, request.name)
                 self.create_server(request, headnode)
 
-            if headnode.state == 'booting' and self.check_if_online(request, headnode):
-                self.log.info('Initializing new server %s for request %s', request.headnode, request.name)
-                self.initialize_server(request, headnode)
+            if headnode.state == 'booting': 
+                if self.check_if_online(request, headnode):
+                    self.log.info('Initializing new server %s for request %s', request.headnode, request.name)
+                    self.initialize_server(request, headnode)
+                else: 
+                    self.log.debug('Headnode for %s could not yet be used for login.', request.name)
 
             if headnode.state == 'initializing' and self.check_if_done_init(request, headnode):
-                self.log.info('Done initializers server %s for request %s', request.headnode, request.name)
+                self.log.info('Done initializing server %s for request %s', request.headnode, request.name)
                 self.report_running_server(request, headnode)
+
+            if headnode.state == 'running': 
+                if self.check_if_online(request, headnode):
+                    self.contact_failures[request.name] = self.max_contact_failures
+                else:
+                    self.contact_failures[request.name] -= 1
+
+                    if self.contact_failures[request.name] < 1:
+                        self.log.warning('Headnode for %s could not be contacted after %d tries. Declaring failure.', request.name, self.max_contact_failures)
+                        headnode.state = 'failure'
+                    else:
+                        self.log.warning('Headnode for %s could not be contacted! (%d more tries before declaring failure)', request.name, self.contact_failures[request_name])
 
         except Exception, e:
             self.log.debug("Error while processing headnode: %s", e)
             self.log.warning(traceback.format_exc(None))
-            self.initializers[request.name] = None
+
+            self.initializers.pop(request.name, None)
+            self.contact_failures.pop(request.name, None)
+
             if headnode:
                 headnode.state = 'failure'
             else:
@@ -141,10 +164,9 @@ class HandleHeadNodes(VC3Task):
     def terminate_server(self, request, headnode):
         try:
             if headnode.state != 'terminated':
-                if self.initializers[request.name]:
+                if self.initializers.get(request.name, None):
                     try:
                         proc = self.initializers[request.name]
-                        self.initializers[request.name] = None
                         proc.terminate()
                     except Exception, e:
                         self.log.warning('Exception while killing initializer for %s: %s', request.name, e)
@@ -152,6 +174,9 @@ class HandleHeadNodes(VC3Task):
                 server = self.nova.servers.find(name=request.name)
                 self.log.debug('Teminating headnode %s for request %s', request.headnode, request.name)
                 server.delete()
+
+                self.initializers.pop(request.name, None)
+                self.contact_failures.pop(request.name, None)
         except Exception, e:
             self.log.warning('Could not find headnode instance for request %s (%s)', request.name, e)
         finally:
@@ -195,7 +220,7 @@ class HandleHeadNodes(VC3Task):
 
             return True
         except subprocess.CalledProcessError:
-            self.log.debug('Headnode for %s running at %s cannot be used for login yet.', request.name, ip)
+            self.log.debug('Headnode for %s running at %s could not be accessed.', request.name, ip)
             return False
 
     def boot_server(self, request, headnode):
@@ -246,6 +271,7 @@ class HandleHeadNodes(VC3Task):
                 stderr=self.ansible_debug,
                 )
         self.initializers[request.name] = pipe
+        self.contact_failures[request.name] = self.max_contact_failures
 
     def check_if_done_init(self, request, headnode):
         try:
@@ -258,7 +284,7 @@ class HandleHeadNodes(VC3Task):
                 return False
 
             # the process is done when there is a returncode
-            self.initializers[request.name] = None
+            self.initializers.pop(request.name, None)
 
             if pipe.returncode != 0:
                 self.log.warning('Error when initializing headnode for request %s. Exit status: %d', request.name, pipe.returncode)
