@@ -71,13 +71,18 @@ class HandleRequests(VC3Task):
         nodesets           = self.getNodesets(request)
         request.statusinfo = self.compute_job_status_summary(request.statusraw, nodesets, next_state)
 
+        headnode = self.getHeadNode(request)
+
+        if headnode and headnode.state == 'failure':
+            (next_state, reason) = ('failure', 'There was a failure with headnode. Please terminate the virtual cluster.')
+
         if  next_state == 'new': 
             # nexts: validated, terminating
             (next_state, reason) = self.state_new(request)
 
         if  next_state == 'validated':
             # nexts: validated, initialized, terminating
-            (next_state, reason) = self.state_validated(request)
+            (next_state, reason) = self.state_validated(request, headnode)
 
         if  next_state == 'initialized':
             # nexts: initialized, pending, terminating
@@ -162,20 +167,10 @@ class HandleRequests(VC3Task):
             self.log.warning("Invalid Request: %s" % str(e))
             return ('terminated', 'Invalid request: %s' % str(e))
 
-    def state_validated(self, request):
+    def state_validated(self, request, headnode):
         self.log.debug('waiting for headnode to come online for %s' % request.name)
 
-        headnode = None
-        try:
-            headnode = self.client.getNodeset(request.headnode)
-        except InfoConnectionFailure:
-            pass
-        except InfoEntityMissingException:
-            pass
-
-        if headnode and headnode.state == 'failure':
-            return ('validated', 'Failure when launching headnode. Please terminate request.')
-        elif headnode and headnode.state == 'running':
+        if headnode and headnode.state == 'running':
             return ('initialized', 'Waiting for factory to start filling the request.')
         else:
             return ('validated', 'Waiting for headnode to come online.')
@@ -561,6 +556,16 @@ class HandleRequests(VC3Task):
             except KeyError, e:
                 pass
         return statusinfo
+
+    def getHeadNode(self, request):
+        headnode = None
+        try:
+            headnode = self.client.getNodeset(request.headnode)
+        except InfoConnectionFailure:
+            pass
+        except InfoEntityMissingException:
+            pass
+        return headnode
 
     def getNodesets(self, request):
         cluster = self.client.getCluster(request.cluster)
