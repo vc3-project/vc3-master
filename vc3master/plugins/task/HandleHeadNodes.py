@@ -133,7 +133,7 @@ class HandleHeadNodes(VC3Task):
             else:
                 self.log.debug('Waiting for headnode for %s to finish initialization.', request.name)
 
-            if headnode.state == 'running': 
+            if headnode.state == 'initializing' or headnode.state == 'running':
                 if self.check_if_online(request, headnode):
                     self.contact_failures[request.name] = self.max_contact_failures
                 else:
