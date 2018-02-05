@@ -57,7 +57,7 @@ class HandleHeadNodes(VC3Task):
 
         # if once running, a headnode cannot be contacted this many consecutive
         # times, mark it as failure.
-        self.max_contact_failures = 5
+        self.max_contact_failures = 10
         self.contact_failures = {}
 
         self.log.debug("HandleHeadNodes VC3Task initialized.")
