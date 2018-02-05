@@ -118,6 +118,9 @@ class HandleHeadNodes(VC3Task):
                 self.create_server(request, headnode)
 
             if headnode.state == 'booting': 
+                if not headnode.app_host:
+                    headnode.app_host = self.__get_ip(request)
+
                 if self.check_if_online(request, headnode):
                     self.log.info('Initializing new server %s for request %s', request.headnode, request.name)
                     self.initialize_server(request, headnode)
@@ -127,6 +130,8 @@ class HandleHeadNodes(VC3Task):
             if headnode.state == 'initializing' and self.check_if_done_init(request, headnode):
                 self.log.info('Done initializing server %s for request %s', request.headnode, request.name)
                 self.report_running_server(request, headnode)
+            else:
+                self.log.debug('Waiting for headnode for %s to finish initialization.', request.name)
 
             if headnode.state == 'running': 
                 if self.check_if_online(request, headnode):
@@ -193,9 +198,7 @@ class HandleHeadNodes(VC3Task):
             self.log.debug('Waiting for headnode for request %s to come online', request.name)
 
     def check_if_online(self, request, headnode):
-        ip = self.__get_ip(request)
-
-        if ip is None:
+        if headnode.app_host is None:
             self.log.debug('Headnode for %s does not have an address yet.', request.name)
             return False
 
@@ -212,15 +215,15 @@ class HandleHeadNodes(VC3Task):
                 self.node_private_key_file,
                 '-l',
                 self.node_user,
-                ip,
+                headnode.app_host,
                 '--',
                 '/bin/date'])
 
-            self.log.info('Headnode for %s running at %s', request.name, ip)
+            self.log.info('Headnode for %s running at %s', request.name, headnode.app_host)
 
             return True
         except subprocess.CalledProcessError:
-            self.log.debug('Headnode for %s running at %s could not be accessed.', request.name, ip)
+            self.log.debug('Headnode for %s running at %s could not be accessed.', request.name, headnode.app_host)
             return False
 
     def boot_server(self, request, headnode):
@@ -244,7 +247,6 @@ class HandleHeadNodes(VC3Task):
             return
 
         headnode.state = 'initializing'
-        headnode.app_host = self.__get_ip(request)
 
         os.environ['ANSIBLE_HOST_KEY_CHECKING']='False'
 
