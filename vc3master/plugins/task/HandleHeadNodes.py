@@ -144,7 +144,7 @@ class HandleHeadNodes(VC3Task):
                         self.log.warning('Headnode for %s could not be contacted after %d tries. Declaring failure.', request.name, self.max_contact_failures)
                         headnode.state = 'failure'
                     else:
-                        self.log.warning('Headnode for %s could not be contacted! (%d more tries before declaring failure)', request.name, self.contact_failures[request_name])
+                        self.log.warning('Headnode for %s could not be contacted! (%d more tries before declaring failure)', request.name, self.contact_failures[request.name])
 
         except Exception, e:
             self.log.debug("Error while processing headnode: %s", e)
