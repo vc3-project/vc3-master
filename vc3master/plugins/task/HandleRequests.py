@@ -417,6 +417,10 @@ class HandleRequests(VC3Task):
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
             s += ' -- work_queue_worker -M %s -t 1800' % (request.name,)
+        elif nodeset.app_type == 'spark':
+            sparkmaster = 'spark://' + request.headnode['ip'] + ':7077'
+            s += ' --require spark'
+            s += ' -- \'$VC3_ROOT_SPARK/bin/spark-class org.apache.spark.deploy.worker.Worker %s\'' % sparkmaster 
         else:
             raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
 
