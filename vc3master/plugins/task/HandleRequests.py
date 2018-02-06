@@ -444,8 +444,8 @@ class HandleRequests(VC3Task):
 
         envs = []
 
-        if request.environments is not None:
-            envs.extend(request.environments)
+        #if request.environments is not None:
+        #    envs.extend(request.environments)
 
         if nodeset.environment is not None:
             envs.append(nodeset.environment)
