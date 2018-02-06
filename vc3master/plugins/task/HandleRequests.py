@@ -444,29 +444,31 @@ class HandleRequests(VC3Task):
 
         envs = []
 
+        if request.environments is not None:
+            envs.extend(request.environments)
+
         if nodeset.environment is not None:
             envs.append(nodeset.environment)
 
         for env_name in envs:
-            if nodeset.environment is not None:
-                environment = self.client.getEnvironment(env_name)
-                if environment is None:
-                    raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (env_name, section_name), request = request)
+            environment = self.client.getEnvironment(env_name)
+            if environment is None:
+                raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (env_name, section_name), request = request)
 
-                vs    = [ "VC3_REQUESTID=%s" % request.name, "VC3_QUEUE=%s" % section_name]
-                for k in environment.envmap:
-                    vs.append("%s=%s" % (k, environment.envmap[k]))
+            vs    = [ "VC3_REQUESTID=%s" % request.name, "VC3_QUEUE=%s" % section_name]
+            for k in environment.envmap:
+                vs.append("%s=%s" % (k, environment.envmap[k]))
 
-                reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
-                vars  = ' '.join(['--var %s' % x for x in vs])
+            reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
+            vars  = ' '.join(['--var %s' % x for x in vs])
 
-                s += ' ' + vars + ' ' + reqs
+            s += ' ' + vars + ' ' + reqs
 
-                if environment.builder_extra_args:
-                    s += ' ' + ' '.join(environment.builder_extra_args)
+            if environment.builder_extra_args:
+                s += ' ' + ' '.join(environment.builder_extra_args)
 
-                if environment.command:
-                    self.log.warning('Ignoring command of environment %s for %s. Adding pilot for %s instead' % (environment.name, section_name, nodeset.name))
+            if environment.command:
+                self.log.warning('Ignoring command of environment %s for %s. Adding pilot for %s instead' % (environment.name, section_name, nodeset.name))
 
         if len(envs) > 0:
             config.set(section_name, 'vc3.environments', ','.join(envs))
