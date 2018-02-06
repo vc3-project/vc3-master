@@ -261,7 +261,7 @@ class HandleRequests(VC3Task):
             self.log.error('Failure to generate queuesconf: %s', e)
             self.log.debug(traceback.format_exc(None))
             request.queuesconf = ''
-            return None
+            raise e
 
     def add_auth_conf(self, request):
         config = ConfigParser.RawConfigParser()
