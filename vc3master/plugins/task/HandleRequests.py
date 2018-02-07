@@ -82,7 +82,7 @@ class HandleRequests(VC3Task):
 
         if  next_state == 'initializing':
             # nexts: initializing, pending, terminating
-            (next_state, reason) = self.state_initializing(request)
+            (next_state, reason) = self.state_initializing(request, headnode)
 
         if next_state == 'pending':
             # nexts: pending, running, terminating
