@@ -2,7 +2,7 @@
 
 
 from vc3master.task import VC3Task
-from vc3infoservice.infoclient import InfoConnectionFailure
+from vc3infoservice.infoclient import InfoConnectionFailure, InfoEntityMissingException
 
 from base64 import b64encode
 import pluginmanager as pm
@@ -55,6 +55,11 @@ class HandleHeadNodes(VC3Task):
 
         self.initializers = {}
 
+        # if once running, a headnode cannot be contacted this many consecutive
+        # times, mark it as failure.
+        self.max_contact_failures = 10
+        self.contact_failures = {}
+
         self.log.debug("HandleHeadNodes VC3Task initialized.")
 
     def runtask(self):
@@ -81,77 +86,121 @@ class HandleHeadNodes(VC3Task):
 
         self.log.debug("Processing headnode for '%s'", request.name)
 
-        if request.headnode and request.headnode.has_key('state') and request.headnode['state'] == 'terminated':
+        if not request.headnode:
+            # Request has not yet indicated the name it wants for the headnode, so we simply return.
             return
 
-        if request.state == 'cleanup' or request.state == 'terminated':
-            self.terminate_server(request)
-
-        elif request.state == 'validated':
-
-            if request.headnode is None:
-                self.create_server(request)
-
-            if request.headnode['state'] == 'booting' and self.check_if_online(request):
-                self.initialize_server(request)
-
-            if request.headnode['state'] == 'initializing' and self.check_if_done_init(request):
-                self.report_running_server(request)
-
-        else:
+        headnode = None
+        try:
+            headnode = self.client.getNodeset(request.headnode)
+        except InfoEntityMissingException:
+            pass
+        except InfoConnectionFailure:
             return
 
         try:
-            # hack to force info update (changing single fields does not trigger update)
-            request.headnode = request.headnode
-            self.client.storeRequest(request)
+            if headnode is None:
+                if request.state == 'initializing':
+                    headnode = self.create_headnode_nodeset(request)
+                elif request.state == 'cleanup' or request.state == 'terminated':
+                    # Nothing to do, the headnode has been cleaned-up
+                    return
+                else:
+                    # Something went wrong, the headnode should still be there.
+                    self.log.error("Could not find headnode information for %s", request.name)
+                    return
+
+            if request.state == 'cleanup' or request.state == 'terminated':
+                self.terminate_server(request, headnode)
+
+            if headnode.state == 'new':
+                self.log.info('Creating new nodeset %s for request %s', request.headnode, request.name)
+                self.create_server(request, headnode)
+
+            if headnode.state == 'booting': 
+                if not headnode.app_host:
+                    headnode.app_host = self.__get_ip(request)
+
+                if self.check_if_online(request, headnode):
+                    self.log.info('Initializing new server %s for request %s', request.headnode, request.name)
+                    self.initialize_server(request, headnode)
+                else: 
+                    self.log.debug('Headnode for %s could not yet be used for login.', request.name)
+
+            if headnode.state == 'initializing':
+                if self.check_if_done_init(request, headnode):
+                    self.log.info('Done initializing server %s for request %s', request.headnode, request.name)
+                    self.report_running_server(request, headnode)
+                else:
+                    self.log.debug('Waiting for headnode for %s to finish initialization.', request.name)
+
+            if headnode.state == 'initializing' or headnode.state == 'running':
+                if self.check_if_online(request, headnode):
+                    self.contact_failures[request.name] = self.max_contact_failures
+                else:
+                    self.contact_failures[request.name] -= 1
+
+                    if self.contact_failures[request.name] < 1:
+                        self.log.warning('Headnode for %s could not be contacted after %d tries. Declaring failure.', request.name, self.max_contact_failures)
+                        headnode.state = 'failure'
+                    else:
+                        self.log.warning('Headnode for %s could not be contacted! (%d more tries before declaring failure)', request.name, self.contact_failures[request.name])
+
         except Exception, e:
-            self.log.warning("Storing the new request state failed. (%s)", e)
+            self.log.debug("Error while processing headnode: %s", e)
             self.log.warning(traceback.format_exc(None))
 
+            self.initializers.pop(request.name, None)
+            self.contact_failures.pop(request.name, None)
 
-    def terminate_server(self, request):
+            if headnode:
+                headnode.state = 'failure'
+            else:
+                raise
+
         try:
-            if not request.headnode:
-                request.headnode = {}
-                request.headnode['state'] = 'terminated'
-
-            if request.headnode['state'] == 'terminated':
-                return
-
-            if self.initializers[request.name]:
-                try:
-                    proc = self.initializers[request.name]
-                    self.initializers[request.name] = None
-                    proc.terminate()
-                except Exception, e:
-                    self.log.warning('Exception while killing initializer for %s: %s', request.name, e)
-
-            server = self.nova.servers.find(name=request.name)
-            self.log.debug('Teminating headnode at %s for request %s', request.headnode, request.name)
-            server.delete()
-
+            if headnode.state == 'terminated':
+                self.delete_headnode_nodeset(request)
+            else:
+                self.client.storeNodeset(headnode)
         except Exception, e:
-            self.log.warning('Could not find headnode for request %s (%s)', request.name, e)
+            self.log.warning("Storing the new headnode state failed. (%s)", e)
+            self.log.warning(traceback.format_exc(None))
 
-        request.headnode['state'] = 'terminated'
+    def terminate_server(self, request, headnode):
+        try:
+            if headnode.state != 'terminated':
+                if self.initializers.get(request.name, None):
+                    try:
+                        proc = self.initializers[request.name]
+                        proc.terminate()
+                    except Exception, e:
+                        self.log.warning('Exception while killing initializer for %s: %s', request.name, e)
 
-    def create_server(self, request):
-        request.headnode = {}
+                server = self.nova.servers.find(name=request.name)
+                self.log.debug('Teminating headnode %s for request %s', request.headnode, request.name)
+                server.delete()
 
-        server = self.boot_server(request)
+                self.initializers.pop(request.name, None)
+                self.contact_failures.pop(request.name, None)
+        except Exception, e:
+            self.log.warning('Could not find headnode instance for request %s (%s)', request.name, e)
+        finally:
+            headnode.state = 'terminated'
+
+    def create_server(self, request, headnode):
+        server = self.boot_server(request, headnode)
+
         if not server:
-            request.headnode['state'] = 'failure'
-            raise('Could not boot headnode for request %s', request.name)
+            headnode.state = 'failure'
+            self.log.warning('Could not boot headnode for request %s', request.name)
+        else:
+            headnode.state = 'booting'
+            self.log.debug('Waiting for headnode for request %s to come online', request.name)
 
-        self.log.debug('Waiting for headnode for request %s to come online', request.name)
-        request.headnode['state'] = 'booting'
-
-
-    def check_if_online(self, request):
-        ip = self.__get_ip(request)
-
-        if ip is None:
+    def check_if_online(self, request, headnode):
+        if headnode.app_host is None:
+            self.log.debug('Headnode for %s does not have an address yet.', request.name)
             return False
 
         try:
@@ -167,17 +216,18 @@ class HandleHeadNodes(VC3Task):
                 self.node_private_key_file,
                 '-l',
                 self.node_user,
-                ip,
+                headnode.app_host,
                 '--',
                 '/bin/date'])
 
-            self.log.info('Headnode for %s running at %s', request.name, ip)
+            self.log.info('Headnode for %s running at %s', request.name, headnode.app_host)
 
             return True
         except subprocess.CalledProcessError:
+            self.log.debug('Headnode for %s running at %s could not be accessed.', request.name, headnode.app_host)
             return False
 
-    def boot_server(self, request):
+    def boot_server(self, request, headnode):
         try:
             server = self.nova.servers.find(name=request.name)
             self.log.info('Found headnode at %s for request %s', request.headnode, request.name)
@@ -191,16 +241,13 @@ class HandleHeadNodes(VC3Task):
         return server
 
 
-    def initialize_server(self, request):
+    def initialize_server(self, request, headnode):
 
-        # if we are already initializing this headnode
+        # if we already initialized this headnode
         if self.initializers.has_key(request.name):
             return
 
-        self.log.info('Initializing new server at %s for request %s', request.headnode, request.name)
-
-        request.headnode['state'] = 'initializing'
-        request.headnode['ip']    = self.__get_ip(request)
+        headnode.state = 'initializing'
 
         os.environ['ANSIBLE_HOST_KEY_CHECKING']='False'
 
@@ -220,15 +267,16 @@ class HandleHeadNodes(VC3Task):
                     '--key-file',
                     self.node_private_key_file,
                     '--inventory',
-                    request.headnode['ip'] + ',',
+                    headnode.app_host + ',',
                     ],
                 cwd = self.ansible_path,
                 stdout=self.ansible_debug,
                 stderr=self.ansible_debug,
                 )
         self.initializers[request.name] = pipe
+        self.contact_failures[request.name] = self.max_contact_failures
 
-    def check_if_done_init(self, request):
+    def check_if_done_init(self, request, headnode):
         try:
             pipe = self.initializers[request.name]
             pipe.poll()
@@ -239,52 +287,25 @@ class HandleHeadNodes(VC3Task):
                 return False
 
             # the process is done when there is a returncode
-            self.initializers[request.name] = None
+            self.initializers.pop(request.name, None)
 
             if pipe.returncode != 0:
                 self.log.warning('Error when initializing headnode for request %s. Exit status: %d', request.name, pipe.returncode)
-                request.headnode['state'] = 'failure'
-
+                headnode.state = 'failure'
             return True
 
         except Exception, e:
             self.log.warning('Error for headnode initializers for request %s (%s)', request.name, e)
-            request.headnode['state'] = 'failure'
+            headnode.state = 'failure'
 
-    def report_running_server(self, request):
-
-        if request.headnode['state'] != 'initializing':
-            return
-
+    def report_running_server(self, request, headnode):
         try:
-            self.create_password_environment(request)
-            request.headnode['state'] = 'running'
+            headnode.app_sectoken = self.read_encoded(self.condor_password_filename(request))
+            headnode.state = 'running'
         except Exception, e:
             self.log.warning('Cound not read condor password file for request %s (%s)', request.name, e)
-            request.headnode['state'] = 'failure'
-
-    def create_password_environment(self, request):
-
-        password_env_name = request.name + '.condor-password'
-        password_contents = self.read_encoded(self.condor_password_filename(request))
-        password_basename = os.path.basename(self.condor_password_filename(request))
-
-        try:
-            os.remove(self.condor_password_filename(request))
-        except Exception, e:
-            self.log.warning("Could not remove file: %s", self.condor_password_filename(request))
-
-        self.log.debug('Creating condor password environment %s', password_env_name)
-
-        try:
-            env = self.client.defineEnvironment(password_env_name, request.owner, files = { password_basename : password_contents })
-            self.client.storeEnvironment(env)
-
-            request.headnode['condor_password_environment'] = password_env_name
-            request.headnode['condor_password_filename']    = password_basename
-        except Exception, e:
-            self.log.error("Error when creating condor password environment %s: %s", password_env_name, e)
             self.log.debug(traceback.format_exc(None))
+            headnode.state = 'failure'
 
     def condor_password_filename(self, request):
         # file created by ansible
@@ -322,11 +343,37 @@ class HandleHeadNodes(VC3Task):
                 keys[member] = user.sshpubstring
         return keys
 
+    def create_headnode_nodeset(self, request):
+        self.log.debug("Creating new headnode spec '%s'", request.headnode)
+
+        headnode = self.client.defineNodeset(
+                name = request.headnode,
+                owner = request.owner,
+                node_number = 1,
+                app_type = 'htcondor',     # should depend on the given nodeset!
+                app_role = 'head-node', 
+                environment = None,
+                description = 'Headnode nodeset automatically created: ' + request.headnode,
+                displayname = request.headnode)
+
+        return headnode
+
+    def delete_headnode_nodeset(self, request):
+        if request.headnode:
+            try:
+                headnode = self.client.getNodeset(request.headnode)
+                self.log.debug("Deleting headnode spec '%s'", request.headnode)
+                self.client.deleteNodeset(request.headnode)
+            except Exception, e:
+                self.log.debug("Could not delete headnode nodeset '%s'." % (request.headnode,))
+                self.log.debug(traceback.format_exc(None))
+
     def __get_ip(self, request):
         try:
             server = self.nova.servers.find(name=request.name)
 
             if server.status != 'ACTIVE':
+                self.log.debug("Headnode for request %s is not active yet.", request.name)
                 return None
 
         except Exception, e:

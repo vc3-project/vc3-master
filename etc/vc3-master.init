@@ -82,7 +82,7 @@ fi
 CONFFILE=$ETCDIR/$SERVICENAME.conf
 LOGFILE=/var/log/$SERVICENAME/$SERVICENAME.log
 CONSOLE_LOG=/var/log/$SERVICENAME/console.log
-OPTIONS="--debug --sleep=60 --runas=vc3 --log=$LOGFILE"
+OPTIONS=" --sleep=60 --runas=vc3 --log=$LOGFILE"
 
 # Source settings from sysconfig
 # overriding default if present

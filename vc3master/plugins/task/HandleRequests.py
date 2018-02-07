@@ -39,9 +39,20 @@ class HandleRequests(VC3Task):
                         self.process_request(r)
                     except VC3InvalidRequest, e:
                         self.log.warning("Request %s is not valid. (%s)", r.name, e)
+                        r.state = 'failure'
+                        r.state_reason = 'Request invalid: ' + str(e)
                     except Exception, e:
                         self.log.warning("Request %s had a exception (%s)", r.name, e)
                         self.log.debug(traceback.format_exc(None))
+                        r.state = 'failure'
+                        r.state_reason = str(e)
+
+                    try:
+                        self.client.storeRequest(r)
+                    except Exception, e:
+                        self.log.warning("Storing the new request state failed. (%s)", e)
+                        self.log.warning(traceback.format_exc(None))
+
         except InfoConnectionFailure, e:
             self.log.warning("Could not read requests from infoservice. (%s)", e)
 
@@ -53,24 +64,25 @@ class HandleRequests(VC3Task):
 
         (next_state, reason) = (request.state, request.state_reason)
 
-        if request.action and request.action == 'terminate':
-            if not self.is_finishing_state(next_state):
-                (next_state, reason) = ('terminating', 'received terminate action')
-
         nodesets           = self.getNodesets(request)
         request.statusinfo = self.compute_job_status_summary(request.statusraw, nodesets, next_state)
+        headnode = self.getHeadNode(request)
+
+        if not self.is_finishing_state(next_state):
+            if headnode and headnode.state == 'failure':
+                (next_state, reason) = ('failure', 'There was a failure with headnode. Please terminate the virtual cluster.')
+
+        if request.action and request.action == 'terminate':
+            if not self.is_finishing_state(next_state) or request.state == 'failure':
+                (next_state, reason) = ('terminating', 'received terminate action')
 
         if  next_state == 'new': 
-            # nexts: validated, terminating
+            # nexts: initializing, terminating
             (next_state, reason) = self.state_new(request)
 
-        if  next_state == 'validated':
-            # nexts: validated, initialized, terminating
-            (next_state, reason) = self.state_validated(request)
-
-        if  next_state == 'initialized':
-            # nexts: initialized, pending, terminating
-            (next_state, reason) = self.state_initialized(request)
+        if  next_state == 'initializing':
+            # nexts: initializing, pending, terminating
+            (next_state, reason) = self.state_initializing(request, headnode)
 
         if next_state == 'pending':
             # nexts: pending, running, terminating
@@ -98,17 +110,15 @@ class HandleRequests(VC3Task):
         else:
             self.log.debug("request '%s' remained in state '%s'", request.name, request.state)
 
-        try:
-            if request.state != 'new' and request.state != 'validated':
-                self.add_queues_conf(request, nodesets)
-                self.add_auth_conf(request)
-            self.client.storeRequest(request)
-        except Exception, e:
-            self.log.warning("Storing the new request state failed. (%s)", e)
-            self.log.warning(traceback.format_exc(None))
+        if not self.is_initializing_state(request.state) and request.state != 'terminated':
+            self.add_queues_conf(request, nodesets)
+            self.add_auth_conf(request)
+
+    def is_initializing_state(self, state):
+        return state in ['new', 'initializing']
 
     def is_finishing_state(self, state):
-        return state in ['terminating', 'cleanup', 'terminated']
+        return state in ['failure', 'terminating', 'cleanup', 'terminated']
 
     def request_is_valid(self, request):
 
@@ -136,6 +146,9 @@ class HandleRequests(VC3Task):
                 bad_reasons.append("Project '%s' for request '%s' is not defined." % (request.project, request.name))
 
         if not bad_reasons:
+            # fill-in the desired headnode name. This will eventually come from
+            # the nodesets when the request is first created.
+            request.headnode = 'headnode-for-' + request.name
             return True
         else:
             raise VC3InvalidRequest(' '.join(bad_reasons))
@@ -148,54 +161,29 @@ class HandleRequests(VC3Task):
 
         try:
             if self.request_is_valid(request):
-                return ('validated', None)
+                return ('initializing', 'Waiting for cluster components to come online.')
         except VC3InvalidRequest, e:
             self.log.warning("Invalid Request: %s" % str(e))
             return ('terminated', 'Invalid request: %s' % str(e))
 
-    def state_validated(self, request):
-        self.log.debug('waiting for headnode to come online for %s' % request.name)
+    def state_initializing(self, request, headnode):
+        if not headnode or headnode.state != 'running':
+            self.log.debug('waiting for headnode to come online for %s' % request.name)
+            return ('initializing', 'Waiting for headnode to come online.')
 
-        # set headnode manually:
-        #request.headnode = { 'state' : 'running', 'ip' : 'condor-dev.virtualclusters.org' }
-
-        if request.headnode is None:
-            return ('validated', None)
-        elif request.headnode['state'] == 'failure':
-            return ('validated', 'Failure when launching headnode. Please terminate request.')
-        elif request.headnode['state'] == 'running':
-            return ('initialized', 'Waiting for factory to start filling the request.')
-        else:
-            return ('validated', None)
-
-
-    def state_initialized(self, request):
-        self.log.debug('waiting for factory to configure %s' % request.name)
-
-        running = self.job_count_with_state(request, 'running')
-        idle    = self.job_count_with_state(request, 'idle')
-
-        if (running is None) or (idle is None) or (idle + running == 0):
-            # factory has not reported any jobs, so we remain in the initialized state. 
-            return ('initialized', None)
-        else:
-            # factory updated the status of the queue, so we know the request is configured.
-            return ('pending', None)
-
+        return ('pending', 'Waiting for factory to start filling the request.')
 
     def state_pending(self, request):
         self.log.debug('waiting for factory to start fulfilling request %s' % request.name)
 
         running = self.job_count_with_state(request, 'running')
 
-        if running is None:
-            self.log.warning('Failure: status of request %s went away.' % request.name)
-            return ('terminating', 'Failure: status of request %s went away.' % request.name)
+        if not running:
+            return ('pending', 'Waiting for factory to configure itself.')
         elif running > 0:
             return ('running', 'factory started fulfilling request %s.' % request.name)
         else:
             return ('pending', 'Waiting for factory to start filling the request.')
-
 
     def state_running(self, request):
         total_of_nodes = self.total_jobs_requested(request)
@@ -205,9 +193,9 @@ class HandleRequests(VC3Task):
             self.log.warning('Failure: status of request %s went away.' % request.name)
             return ('terminating', 'Failure: status of request %s went away.' % request.name)
         elif total_of_nodes > running:
-            return ('running', 'growing' % (total_of_nodes - running))
+            return ('running', 'growing %d' % (total_of_nodes - running))
         elif total_of_nodes < running:
-            return ('running', 'shrinking' % (running - total_of_nodes))
+            return ('running', 'shrinking %d' % (running - total_of_nodes))
         else:
             return ('running', 'all requested jobs are running.')
 
@@ -256,7 +244,7 @@ class HandleRequests(VC3Task):
             self.log.error('Failure to generate queuesconf: %s', e)
             self.log.debug(traceback.format_exc(None))
             request.queuesconf = ''
-            return None
+            raise e
 
     def add_auth_conf(self, request):
         config = ConfigParser.RawConfigParser()
@@ -303,11 +291,15 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorssh.host',  resource.accesshost)
             config.set(section_name, 'batchsubmit.condorssh.port',  str(resource.accessport))
             config.set(section_name, 'batchsubmit.condorssh.authprofile', allocation.name)
-            config.set(section_name, 'executable',          '       %(builder)s')
+            config.set(section_name, 'executable',                  '%(builder)s')
 
-            if request.headnode and request.headnode.has_key('condor_password_environment'):
-                config.set(section_name, 'condor_password_filename',    request.headnode['condor_password_filename'])
-                config.set(section_name, 'condor_password_environment', request.headnode['condor_password_environment'])
+            if nodeset.app_type == 'htcondor' and nodeset.app_role == 'worker-nodes':
+                try:
+                    headnode = self.client.getNodeset(request.headnode)
+                    config.set(section_name, 'condor_password_filename', request.name + '-condor.passwd')
+                    config.set(section_name, 'condor_password', headnode.app_sectoken)
+                except Exception, e:
+                    self.log.warning("Could not get headnode condor password for request '%s'. Continuing without password (this probably won't work).", request.name )
 
         elif resource.accesstype == 'cloud':
             config.set(section_name, 'batchsubmitplugin',          'CondorEC2')
@@ -319,7 +311,7 @@ class HandleRequests(VC3Task):
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
 
-        self.add_environment_to_queuesconf(config, request, section_name, nodeset, request.headnode)
+        self.add_environment_to_queuesconf(config, request, section_name, nodeset)
 
         self.log.debug("Completed filling in config for allocation %s" % allocation.name)
 
@@ -407,13 +399,17 @@ class HandleRequests(VC3Task):
 
         s = ''
         if nodeset.app_type == 'htcondor':
-            collector = request.headnode['ip']
+
+            collector = 'missing'
+            try:
+                headnode  = self.client.getNodeset(request.headnode)
+                collector = headnode.app_host
+            except Exception, e:
+                self.log.warning("Could not find collector for request '%s'.")
+
             s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
-            try:
-                s += ' -- vc3-glidein -c %s -C %s -p %s' % (collector, collector, request.headnode['condor_password_filename'])
-            except KeyError:
-                raise VC3InvalidRequest("headnode for '%s' did not define condor_password_filename" % request.name)
+            s += ' -- vc3-glidein -c %s -C %s -p %s' % (collector, collector, '%(condor_password_filename)s')
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
             s += ' -- work_queue_worker -M %s -t 1800' % (request.name,)
@@ -427,7 +423,7 @@ class HandleRequests(VC3Task):
         return s
 
 
-    def add_environment_to_queuesconf(self, config, request, section_name, nodeset, headnode):
+    def add_environment_to_queuesconf(self, config, request, section_name, nodeset):
         #s  = " --revar 'VC3_.*'"
         s  = ' '
         s += ' --home=.'
@@ -435,32 +431,31 @@ class HandleRequests(VC3Task):
 
         envs = []
 
+        if request.environments is not None:
+            envs.extend(request.environments)
+
         if nodeset.environment is not None:
             envs.append(nodeset.environment)
 
-        if headnode and headnode.has_key('condor_password_environment'):
-            envs.append(headnode['condor_password_environment'])
-
         for env_name in envs:
-            if nodeset.environment is not None:
-                environment = self.client.getEnvironment(env_name)
-                if environment is None:
-                    raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (env_name, section_name), request = request)
+            environment = self.client.getEnvironment(env_name)
+            if environment is None:
+                raise VC3InvalidRequest("Unknown environment '%s' for '%s'" % (env_name, section_name), request = request)
 
-                vs    = [ "VC3_REQUESTID=%s" % request.name, "VC3_QUEUE=%s" % section_name]
-                for k in environment.envmap:
-                    vs.append("%s=%s" % (k, environment.envmap[k]))
+            vs    = [ "VC3_REQUESTID=%s" % request.name, "VC3_QUEUE=%s" % section_name]
+            for k in environment.envmap:
+                vs.append("%s=%s" % (k, environment.envmap[k]))
 
-                reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
-                vars  = ' '.join(['--var %s' % x for x in vs])
+            reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
+            vars  = ' '.join(['--var %s' % x for x in vs])
 
-                s += ' ' + vars + ' ' + reqs
+            s += ' ' + vars + ' ' + reqs
 
-                if environment.builder_extra_args:
-                    s += ' ' + ' '.join(environment.builder_extra_args)
+            if environment.builder_extra_args:
+                s += ' ' + ' '.join(environment.builder_extra_args)
 
-                if environment.command:
-                    self.log.warning('Ignoring command of environment %s for %s. Adding pilot for %s instead' % (environment.name, section_name, nodeset.name))
+            if environment.command:
+                self.log.warning('Ignoring command of environment %s for %s. Adding pilot for %s instead' % (environment.name, section_name, nodeset.name))
 
         if len(envs) > 0:
             config.set(section_name, 'vc3.environments', ','.join(envs))
@@ -470,12 +465,24 @@ class HandleRequests(VC3Task):
         config.set(section_name, 'executable.arguments', s)
 
     def is_everything_cleaned_up(self, request):
-        # here we want to check the state of the headnode
+        headnode = None
+        if request.headnode:
+            try:
+                headnode = self.client.getNodeset(request.headnode)
+            except InfoConnectionFailure:
+                # We don't know if headnode has been cleared or not...
+                return False
+            except InfoEntityMissingException:
+                # Headnode is missing, and that's what we want
+                pass
 
-        if request.headnode['state'] == 'terminated':
-            return True
+        if headnode:
+            return False
+        # if somethingElseStillThere:
+        #    return False
 
-        return False
+        # everything has been cleaned up:
+        return True
 
     def job_count_with_state(self, request, state):
         if not request.statusraw:
@@ -537,6 +544,16 @@ class HandleRequests(VC3Task):
                 pass
         return statusinfo
 
+    def getHeadNode(self, request):
+        headnode = None
+        try:
+            headnode = self.client.getNodeset(request.headnode)
+        except InfoConnectionFailure:
+            pass
+        except InfoEntityMissingException:
+            pass
+        return headnode
+
     def getNodesets(self, request):
         cluster = self.client.getCluster(request.cluster)
         if not cluster:
@@ -554,7 +571,6 @@ class HandleRequests(VC3Task):
             self.log.debug("Retrieved %s for name %s" % ( nodeset, nodeset_name))
             nodesets.append(nodeset)
         return nodesets
-
 
 class VC3InvalidRequest(Exception):
     def __init__(self, reason, request = None):
