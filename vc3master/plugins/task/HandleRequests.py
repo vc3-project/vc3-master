@@ -110,7 +110,7 @@ class HandleRequests(VC3Task):
         else:
             self.log.debug("request '%s' remained in state '%s'", request.name, request.state)
 
-        if not is_initializing_state(request.state):
+        if not is_initializing_state(request.state) and request.state != 'terminated':
             self.add_queues_conf(request, nodesets)
             self.add_auth_conf(request)
 
