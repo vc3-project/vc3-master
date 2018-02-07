@@ -77,16 +77,12 @@ class HandleRequests(VC3Task):
                 (next_state, reason) = ('terminating', 'received terminate action')
 
         if  next_state == 'new': 
-            # nexts: validated, terminating
+            # nexts: initializing, terminating
             (next_state, reason) = self.state_new(request)
 
-        if  next_state == 'validated':
-            # nexts: validated, initialized, terminating
-            (next_state, reason) = self.state_validated(request, headnode)
-
-        if  next_state == 'initialized':
-            # nexts: initialized, pending, terminating
-            (next_state, reason) = self.state_initialized(request)
+        if  next_state == 'initializing':
+            # nexts: initializing, pending, terminating
+            (next_state, reason) = self.state_initializing(request)
 
         if next_state == 'pending':
             # nexts: pending, running, terminating
@@ -114,9 +110,12 @@ class HandleRequests(VC3Task):
         else:
             self.log.debug("request '%s' remained in state '%s'", request.name, request.state)
 
-        if request.state != 'new' and request.state != 'validated':
+        if not is_initializing_state(request.state):
             self.add_queues_conf(request, nodesets)
             self.add_auth_conf(request)
+
+    def is_initializing_state(self, state):
+        return state in ['new', 'initializing']
 
     def is_finishing_state(self, state):
         return state in ['failure', 'terminating', 'cleanup', 'terminated']
@@ -162,47 +161,29 @@ class HandleRequests(VC3Task):
 
         try:
             if self.request_is_valid(request):
-                return ('validated', None)
+                return ('initializing', 'Waiting for cluster components to come online.')
         except VC3InvalidRequest, e:
             self.log.warning("Invalid Request: %s" % str(e))
             return ('terminated', 'Invalid request: %s' % str(e))
 
-    def state_validated(self, request, headnode):
-        self.log.debug('waiting for headnode to come online for %s' % request.name)
+    def state_initializing(self, request, headnode):
+        if not headnode or headnode.state != 'running':
+            self.log.debug('waiting for headnode to come online for %s' % request.name)
+            return ('initializing', 'Waiting for headnode to come online.')
 
-        if headnode and headnode.state == 'running':
-            return ('initialized', 'Waiting for factory to start filling the request.')
-        else:
-            return ('validated', 'Waiting for headnode to come online.')
-
-
-    def state_initialized(self, request):
-        self.log.debug('waiting for factory to configure %s' % request.name)
-
-        running = self.job_count_with_state(request, 'running')
-        idle    = self.job_count_with_state(request, 'idle')
-
-        if (running is None) or (idle is None) or (idle + running == 0):
-            # factory has not reported any jobs, so we remain in the initialized state. 
-            return ('initialized', None)
-        else:
-            # factory updated the status of the queue, so we know the request is configured.
-            return ('pending', None)
-
+        return ('pending', 'Waiting for factory to start filling the request.')
 
     def state_pending(self, request):
         self.log.debug('waiting for factory to start fulfilling request %s' % request.name)
 
         running = self.job_count_with_state(request, 'running')
 
-        if running is None:
-            self.log.warning('Failure: status of request %s went away.' % request.name)
-            return ('terminating', 'Failure: status of request %s went away.' % request.name)
+        if not running:
+            return ('pending', 'Waiting for factory to configure itself.')
         elif running > 0:
             return ('running', 'factory started fulfilling request %s.' % request.name)
         else:
             return ('pending', 'Waiting for factory to start filling the request.')
-
 
     def state_running(self, request):
         total_of_nodes = self.total_jobs_requested(request)

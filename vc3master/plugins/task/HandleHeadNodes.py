@@ -100,7 +100,7 @@ class HandleHeadNodes(VC3Task):
 
         try:
             if headnode is None:
-                if request.state == 'validated':
+                if request.state == 'initializing':
                     headnode = self.create_headnode_nodeset(request)
                 elif request.state == 'cleanup' or request.state == 'terminated':
                     # Nothing to do, the headnode has been cleaned-up
