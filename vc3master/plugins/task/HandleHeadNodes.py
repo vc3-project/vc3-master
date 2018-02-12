@@ -257,6 +257,9 @@ class HandleHeadNodes(VC3Task):
         extra_vars['condor_password_file'] = self.condor_password_filename(request)
         extra_vars['production_keys']      = self.get_members_keys(request)
 
+        if request.environments and len(request.environments) > 0:
+            extra_vars['builder_options'] = self.get_builder_options(request)
+
         # passing extra-vars as a command line argument for now. That won't
         # scale well, we want to write those vars to a file instead.
         pipe = subprocess.Popen(
@@ -342,6 +345,14 @@ class HandleHeadNodes(VC3Task):
             else:
                 keys[member] = user.sshpubstring
         return keys
+
+    def get_builder_options(self, request):
+        packages = []
+        for env_name in request.environments:
+            env = self.client.getEnvironment(env_name)
+            if env.packagelist:
+                packages.extend(env.packagelist)
+        return " ".join([ "--require %s" % p for p in packages ])
 
     def create_headnode_nodeset(self, request):
         self.log.debug("Creating new headnode spec '%s'", request.headnode)
