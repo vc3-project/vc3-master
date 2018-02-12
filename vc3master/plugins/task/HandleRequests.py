@@ -505,7 +505,7 @@ class HandleRequests(VC3Task):
         if not request.statusraw:
             return None
 
-        if not self.is_initializing_state(request.state):
+        if not self.is_configuring_state(request.state):
             return None
 
         at_least_one_nodeset = False
