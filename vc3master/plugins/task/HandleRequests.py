@@ -531,10 +531,11 @@ class HandleRequests(VC3Task):
 
         statusinfo = {}
         for nodeset in nodesets:
-            statusinfo[nodeset.name]               = {}
-            statusinfo[nodeset.name]['running']    = 0
-            statusinfo[nodeset.name]['idle']       = 0
-            statusinfo[nodeset.name]['node_number'] = nodeset.node_number
+            statusinfo[nodeset.name]                  = {}
+            statusinfo[nodeset.name]['running']       = 0
+            statusinfo[nodeset.name]['idle']          = 0
+            statusinfo[nodeset.name]['misconfigured'] = 0
+            statusinfo[nodeset.name]['node_number']   = nodeset.node_number
 
             if self.is_finishing_state(next_state):
                 statusinfo[nodeset.name]['requested'] = 0
@@ -544,8 +545,9 @@ class HandleRequests(VC3Task):
             try:
                 for factory in statusraw.keys():
                     for allocation in statusraw[factory][nodeset.name].keys():
-                        statusinfo[nodeset.name]['running'] += statusraw[factory][nodeset.name][allocation]['running']
-                        statusinfo[nodeset.name]['idle']    += statusraw[factory][nodeset.name][allocation]['idle']
+                        statusinfo[nodeset.name]['running']       += statusraw[factory][nodeset.name][allocation]['running']
+                        statusinfo[nodeset.name]['idle']          += statusraw[factory][nodeset.name][allocation]['idle']
+                        statusinfo[nodeset.name]['misconfigured'] += statusraw[factory][nodeset.name][allocation]['misconfigured']
             except KeyError, e:
                 pass
         return statusinfo
