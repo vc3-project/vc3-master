@@ -183,10 +183,12 @@ class HandleRequests(VC3Task):
         self.log.debug('waiting for factory to start fulfilling request %s' % request.name)
 
         running = self.job_count_with_state(request, 'running')
+        idle    = self.job_count_with_state(request, 'idle')
+        mis     = self.job_count_with_state(request, 'misconfigured')
 
-        if not running:
+        if not running or not idle or not mis:
             return ('pending', 'Waiting for factory to configure itself.')
-        elif running > 0:
+        elif (running + idle + mis) > 0:
             return ('running', 'factory started fulfilling request %s.' % request.name)
         else:
             return ('pending', 'Waiting for factory to start filling the request.')
