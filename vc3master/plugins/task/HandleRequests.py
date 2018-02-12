@@ -184,9 +184,8 @@ class HandleRequests(VC3Task):
 
         running = self.job_count_with_state(request, 'running')
         idle    = self.job_count_with_state(request, 'idle')
-        err     = self.job_count_with_state(request, 'error')
 
-        if not running or not idle or not err:
+        if not running or not idle:
             return ('pending', 'Waiting for factory to configure itself.')
         elif (running + idle + mis) > 0:
             return ('running', 'factory started fulfilling request %s.' % request.name)
