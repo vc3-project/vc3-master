@@ -256,9 +256,7 @@ class HandleHeadNodes(VC3Task):
         extra_vars['setup_user_name']      = self.node_user
         extra_vars['condor_password_file'] = self.condor_password_filename(request)
         extra_vars['production_keys']      = self.get_members_keys(request)
-
-        if request.environments and len(request.environments) > 0:
-            extra_vars['builder_options'] = self.get_builder_options(request)
+        extra_vars['builder_options']      = self.get_builder_options(request)
 
         # passing extra-vars as a command line argument for now. That won't
         # scale well, we want to write those vars to a file instead.
