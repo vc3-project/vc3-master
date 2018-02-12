@@ -546,13 +546,17 @@ class HandleRequests(VC3Task):
             else:
                 statusinfo[nodeset.name]['requested'] = statusinfo[nodeset.name]['node_number']
 
-            for factory in statusraw.keys():
-                for allocation in statusraw[factory][nodeset.name].keys():
-                    try:
-                        for field in ['running', 'idle', 'error']:
-                            statusinfo[nodeset.name][field] += statusraw[factory][nodeset.name][allocation][field]
-                    except KeyError, e:
-                        pass
+            try:
+                for factory in statusraw.keys():
+                    for allocation in statusraw[factory][nodeset.name].keys():
+                        try:
+                            for field in ['running', 'idle', 'error']:
+                                statusinfo[nodeset.name][field] += statusraw[factory][nodeset.name][allocation][field]
+                        except KeyError, e:
+                            pass
+            except KeyError, e:
+                pass
+
         return statusinfo
 
     def getHeadNode(self, request):
