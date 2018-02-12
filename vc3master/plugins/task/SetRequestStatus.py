@@ -113,6 +113,12 @@ class SetRequestStatus(VC3Task):
                                 statusinfo[nodeset][jobstatus] = number
                             else:
                                 statusinfo[nodeset][jobstatus] += number
+            # reestablish fields not updated:
+            if requests.statusinfo and requests.statusinfo.get(nodeset, None):
+                for jobstatus in requests.statusinfo[nodeset].keys():
+                    if jobstatus not in statusinfo[nodeset].keys():
+                        statusinfo[nodeset][jobstatus] = request.statusinfo[nodeset][jobstatus]
+
         self.log.debug('Leaving')
         return statusinfo
 
