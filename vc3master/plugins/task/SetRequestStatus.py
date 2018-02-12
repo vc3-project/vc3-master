@@ -75,18 +75,18 @@ class SetRequestStatus(VC3Task):
         Example: 
         if statusraw looks like this 
         
-             {'factory1': {'nodeset1': {'queue1': {'running': 1, 'idle': 5}},
-                           'nodeset2': {'queue2': {'running': 3, 'idle': 6},
-                                        'queue3': {'running': 3, 'idle': 7}
+             {'factory1': {'nodeset1': {'queue1': {'running': 1, 'idle': 5, 'misconfigured': 0}},
+                           'nodeset2': {'queue2': {'running': 3, 'idle': 6, 'misconfigured': 10},
+                                        'queue3': {'running': 3, 'idle': 7, 'misconfigured': 1}
                                        }
                           },
-              'factory2': {'nodeset1': {'queue4': {'running': 8, 'idle': 1}}}
+              'factory2': {'nodeset1': {'queue4': {'running': 8, 'idle': 1, 'misconfigured': 0}}}
              }
         
-        the output of this methid, status, must be like this
+        the output of this method, status, must be like this
         
-              {'nodeset1': {'running': 9, 'idle': 6}, 
-               'nodeset2': {'running': 6, 'idle': 13}
+              {'nodeset1': {'running': 9, 'idle': 6,  'misconfigured': 11}, 
+               'nodeset2': {'running': 6, 'idle': 13, 'misconfigured': 0}
               }
         
 
