@@ -504,8 +504,10 @@ class HandleRequests(VC3Task):
             at_least_one_nodeset = True
 
         if at_least_one_nodeset:
+            self.log.debug('Counting %d jobs in state %s for request %s', count, state, request.name)
             return count
 
+        self.log.debug('No nodesets with jobs in state %s for request %s', state, request.name)
         return None
 
 
