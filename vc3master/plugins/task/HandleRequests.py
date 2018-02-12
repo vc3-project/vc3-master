@@ -113,6 +113,9 @@ class HandleRequests(VC3Task):
         if self.is_configuring_state(request.state):
             self.add_queues_conf(request, nodesets)
             self.add_auth_conf(request)
+        else:
+            request.queuesconf = None
+            request.authconf = None
 
     def is_configuring_state(self, state):
         if self.is_initializing_state(state):
@@ -260,7 +263,7 @@ class HandleRequests(VC3Task):
         except Exception, e:
             self.log.error('Failure to generate queuesconf: %s', e)
             self.log.debug(traceback.format_exc(None))
-            request.queuesconf = ''
+            request.queuesconf = None
             raise e
 
     def add_auth_conf(self, request):
@@ -277,7 +280,7 @@ class HandleRequests(VC3Task):
             return request.authconf
         except Exception, e:
             self.log.error('Failure generating auth.conf: %s', e)
-            request.authconf = ''
+            request.authconf = None
             return None
 
     def generate_queues_section(self, config, request, nodesets, allocation_name):
