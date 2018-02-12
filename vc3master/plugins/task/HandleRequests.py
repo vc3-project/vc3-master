@@ -110,9 +110,18 @@ class HandleRequests(VC3Task):
         else:
             self.log.debug("request '%s' remained in state '%s'", request.name, request.state)
 
-        if not self.is_initializing_state(request.state) and request.state != 'terminated':
+        if self.is_configuring_state(request.state):
             self.add_queues_conf(request, nodesets)
             self.add_auth_conf(request)
+
+    def is_configuring_state(self, state):
+        if self.is_initializing_state(state):
+            return False
+
+        if state == 'terminated':
+            return False
+
+        return True
 
     def is_initializing_state(self, state):
         return state in ['new', 'initializing']
@@ -494,6 +503,9 @@ class HandleRequests(VC3Task):
 
     def job_count_with_state(self, request, state):
         if not request.statusraw:
+            return None
+
+        if not self.is_initializing_state(request.state):
             return None
 
         at_least_one_nodeset = False
