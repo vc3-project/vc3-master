@@ -548,6 +548,9 @@ class HandleRequests(VC3Task):
         if not statusraw:
             return None
 
+        if not self.is_configuring_state():
+            return None
+
         statusinfo = {}
         for nodeset in nodesets:
             statusinfo[nodeset.name]                 = {}
