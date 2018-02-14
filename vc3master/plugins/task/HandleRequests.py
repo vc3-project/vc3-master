@@ -64,8 +64,6 @@ class HandleRequests(VC3Task):
 
         (next_state, reason) = (request.state, request.state_reason)
 
-        nodesets           = self.getNodesets(request)
-        request.statusinfo = self.compute_job_status_summary(request.statusraw, nodesets, next_state)
         headnode = self.getHeadNode(request)
 
         if not self.is_finishing_state(next_state):
@@ -75,6 +73,9 @@ class HandleRequests(VC3Task):
         if request.action and request.action == 'terminate':
             if not self.is_finishing_state(next_state) or request.state == 'failure':
                 (next_state, reason) = ('terminating', 'received terminate action')
+
+        nodesets           = self.getNodesets(request)
+        request.statusinfo = self.compute_job_status_summary(request.statusraw, nodesets, next_state)
 
         if  next_state == 'new': 
             # nexts: initializing, terminating
@@ -548,7 +549,7 @@ class HandleRequests(VC3Task):
         if not statusraw:
             return None
 
-        if not self.is_configuring_state():
+        if not self.is_configuring_state(next_state):
             return None
 
         statusinfo = {}
