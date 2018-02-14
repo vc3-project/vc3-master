@@ -552,7 +552,7 @@ class HandleRequests(VC3Task):
         if not statusraw:
             return None
 
-        if not self.is_initializing_state(next_state):
+        if self.is_initializing_state(next_state):
             return None
 
         statusinfo = {}
