@@ -309,6 +309,10 @@ class HandleHeadNodes(VC3Task):
                 if self.initializing_count[request.name] >= self.node_max_initializing_count:
                     self.log.warning("Could not initialize headnode after %d tries." % (self.node_max_initializing_count,))
                     headnode.state = 'failure'
+                else:
+                    # Make another go at initializing...
+                    return False
+
             return True
 
         except Exception, e:
