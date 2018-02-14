@@ -45,7 +45,8 @@ class HandleHeadNodes(VC3Task):
         self.node_private_key_file = os.path.expanduser(self.config.get(section, 'node_private_key_file'))
         self.node_public_key_name  = self.config.get(section, 'node_public_key_name')
 
-        self.node_max_no_contact_time = int(self.config.get(section, 'node_max_no_contact_time'))
+        self.node_max_no_contact_time    = int(self.config.get(section, 'node_max_no_contact_time'))
+        self.node_max_initializing_count = int(self.config.get(section, 'node_max_initializing_count'))
 
         self.ansible_path       = os.path.expanduser(self.config.get(section, 'ansible_path'))
         self.ansible_playbook   = self.config.get(section, 'ansible_playbook')
@@ -60,6 +61,9 @@ class HandleHeadNodes(VC3Task):
 
         # keep las succesful contact to node, to check against node_max_no_contact_time.
         self.last_contact_times = {}
+
+        # number of times we have tries to initialize a node. After node_max_initializing_count, declare failure.
+        self.initializing_count = {}
 
         self.log.debug("HandleHeadNodes VC3Task initialized.")
 
@@ -124,14 +128,17 @@ class HandleHeadNodes(VC3Task):
 
                 if self.check_if_online(request, headnode):
                     self.log.info('Initializing new server %s for request %s', request.headnode, request.name)
-                    self.initialize_server(request, headnode)
+                    headnode.state = 'initializing'
                 else: 
                     self.log.debug('Headnode for %s could not yet be used for login.', request.name)
 
             if headnode.state == 'initializing':
+                self.initialize_server(request, headnode)
+
                 if self.check_if_done_init(request, headnode):
                     self.log.info('Done initializing server %s for request %s', request.headnode, request.name)
-                    self.report_running_server(request, headnode)
+                    if headnode.state != 'failure':
+                        self.report_running_server(request, headnode)
                 else:
                     self.log.debug('Waiting for headnode for %s to finish initialization.', request.name)
 
@@ -154,6 +161,7 @@ class HandleHeadNodes(VC3Task):
 
             self.initializers.pop(request.name, None)
             self.last_contact_times.pop(request.name, None)
+            self.initializing_count.pop(request.name, None)
 
             if headnode:
                 headnode.state = 'failure'
@@ -185,6 +193,7 @@ class HandleHeadNodes(VC3Task):
 
                 self.initializers.pop(request.name, None)
                 self.last_contact_times.pop(request.name, None)
+                self.initializing_count.pop(request.name, None)
         except Exception, e:
             self.log.warning('Could not find headnode instance for request %s (%s)', request.name, e)
         finally:
@@ -249,7 +258,9 @@ class HandleHeadNodes(VC3Task):
         if self.initializers.has_key(request.name):
             return
 
-        headnode.state = 'initializing'
+        self.initializing_count[request.name] = self.initializing_count.get(request.name, 0) + 1
+
+        self.log.info("Trying to initialize headnode for request %s for the %d/%d time." % (self.initializing_count[request.name], self.node_max_initializing_count))
 
         os.environ['ANSIBLE_HOST_KEY_CHECKING']='False'
 
@@ -294,7 +305,10 @@ class HandleHeadNodes(VC3Task):
 
             if pipe.returncode != 0:
                 self.log.warning('Error when initializing headnode for request %s. Exit status: %d', request.name, pipe.returncode)
-                headnode.state = 'failure'
+                
+                if self.initializing_count[request.name] >= self.node_max_initializing_count:
+                    self.log.warning("Could not initialize headnode after %d tries." % (self.node_max_initializing_count,))
+                    headnode.state = 'failure'
             return True
 
         except Exception, e:
