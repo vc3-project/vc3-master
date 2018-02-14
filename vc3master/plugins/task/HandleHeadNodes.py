@@ -260,7 +260,7 @@ class HandleHeadNodes(VC3Task):
 
         self.initializing_count[request.name] = self.initializing_count.get(request.name, 0) + 1
 
-        self.log.info("Trying to initialize headnode for request %s for the %d/%d time." % (self.initializing_count[request.name], self.node_max_initializing_count))
+        self.log.info("Trying to initialize headnode for request %s for the %d/%d time." % (request.name, self.initializing_count[request.name], self.node_max_initializing_count))
 
         os.environ['ANSIBLE_HOST_KEY_CHECKING']='False'
 
