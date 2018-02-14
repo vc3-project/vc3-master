@@ -509,6 +509,9 @@ class HandleRequests(VC3Task):
         if not request.statusraw:
             return None
 
+        if not request.statusinfo:
+            return None
+
         if not self.is_configuring_state(request.state):
             return None
 
