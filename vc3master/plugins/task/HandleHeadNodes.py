@@ -45,7 +45,7 @@ class HandleHeadNodes(VC3Task):
         self.node_private_key_file = os.path.expanduser(self.config.get(section, 'node_private_key_file'))
         self.node_public_key_name  = self.config.get(section, 'node_public_key_name')
 
-        self.node_max_no_contact_time = self.config.get(section, 'node_max_no_contact_time')
+        self.node_max_no_contact_time = int(self.config.get(section, 'node_max_no_contact_time'))
 
         self.ansible_path       = os.path.expanduser(self.config.get(section, 'ansible_path'))
         self.ansible_playbook   = self.config.get(section, 'ansible_playbook')
