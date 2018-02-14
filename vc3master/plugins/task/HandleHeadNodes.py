@@ -12,6 +12,7 @@ import json
 import os
 import re
 import subprocess
+import time
 
 from novaclient import client as novaclient
 
@@ -44,6 +45,8 @@ class HandleHeadNodes(VC3Task):
         self.node_private_key_file = os.path.expanduser(self.config.get(section, 'node_private_key_file'))
         self.node_public_key_name  = self.config.get(section, 'node_public_key_name')
 
+        self.node_max_no_contact_time = self.config.get(section, 'node_max_no_contact_time')
+
         self.ansible_path       = os.path.expanduser(self.config.get(section, 'ansible_path'))
         self.ansible_playbook   = self.config.get(section, 'ansible_playbook')
 
@@ -55,10 +58,8 @@ class HandleHeadNodes(VC3Task):
 
         self.initializers = {}
 
-        # if once running, a headnode cannot be contacted this many consecutive
-        # times, mark it as failure.
-        self.max_contact_failures = 10
-        self.contact_failures = {}
+        # keep las succesful contact to node, to check against node_max_no_contact_time.
+        self.last_contact_times = {}
 
         self.log.debug("HandleHeadNodes VC3Task initialized.")
 
@@ -135,23 +136,24 @@ class HandleHeadNodes(VC3Task):
                     self.log.debug('Waiting for headnode for %s to finish initialization.', request.name)
 
             if headnode.state == 'initializing' or headnode.state == 'running':
-                if self.check_if_online(request, headnode):
-                    self.contact_failures[request.name] = self.max_contact_failures
-                else:
-                    self.contact_failures[request.name] -= 1
+                now = time.time()
 
-                    if self.contact_failures[request.name] < 1:
-                        self.log.warning('Headnode for %s could not be contacted after %d tries. Declaring failure.', request.name, self.max_contact_failures)
+                if self.check_if_online(request, headnode):
+                    self.last_contact_times[request.name] = now
+                else:
+                    diff = self.last_contact_times[request.name] + self.node_max_no_contact_time - now
+                    if diff < 0:
+                        self.log.warning('Headnode for %s could not be contacted after %d seconds. Declaring failure.', request.name, self.node_max_no_contact_time)
                         headnode.state = 'failure'
                     else:
-                        self.log.warning('Headnode for %s could not be contacted! (%d more tries before declaring failure)', request.name, self.contact_failures[request.name])
+                        self.log.warning('Headnode for %s could not be contacted! (waiting for %d seconds before declaring failure)', request.name, diff)
 
         except Exception, e:
             self.log.debug("Error while processing headnode: %s", e)
             self.log.warning(traceback.format_exc(None))
 
             self.initializers.pop(request.name, None)
-            self.contact_failures.pop(request.name, None)
+            self.last_contact_times.pop(request.name, None)
 
             if headnode:
                 headnode.state = 'failure'
@@ -182,7 +184,7 @@ class HandleHeadNodes(VC3Task):
                 server.delete()
 
                 self.initializers.pop(request.name, None)
-                self.contact_failures.pop(request.name, None)
+                self.last_contact_times.pop(request.name, None)
         except Exception, e:
             self.log.warning('Could not find headnode instance for request %s (%s)', request.name, e)
         finally:
@@ -275,7 +277,7 @@ class HandleHeadNodes(VC3Task):
                 stderr=self.ansible_debug,
                 )
         self.initializers[request.name] = pipe
-        self.contact_failures[request.name] = self.max_contact_failures
+        self.last_contact_times[request.name] = time.time()
 
     def check_if_done_init(self, request, headnode):
         try:
