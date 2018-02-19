@@ -230,6 +230,8 @@ class HandleRequests(VC3Task):
             return ('cleanup', 'Failure: status of request %s went away.' % request.name)
         elif (running + idle) == 0:
             return ('cleanup', 'Factory finished draining the request.')
+        elif request.action == 'terminate':
+            return ('terminating', 'terminate action was received.')
         else:
             return ('terminating', None)
 
