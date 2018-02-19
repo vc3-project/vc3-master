@@ -433,7 +433,7 @@ class HandleRequests(VC3Task):
             s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV -c %s -C %s -p %s' % (collector, collector, '%(condor_password_filename)s')
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
-            s += ' -- work_queue_worker -M %s -t 1800' % (request.name,)
+            s += ' -- work_queue_worker -M %s -dall -t %d' % (request.name, 60*60*2)    # -t %d is two hours, in seconds
         elif nodeset.app_type == 'spark':
             sparkmaster = 'spark://' + request.headnode['ip'] + ':7077'
             s += ' --require spark'
