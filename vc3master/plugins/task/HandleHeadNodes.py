@@ -259,7 +259,7 @@ class HandleHeadNodes(VC3Task):
             self.log.debug('Headnode for %s running at %s could not be accessed.', request.name, headnode.app_host)
             return False
 
-    def check_timeout(self, request, headnode)
+    def check_timeout(self, request, headnode):
         now = time.time()
 
         diff = now - self.last_contact_times[request.name]
