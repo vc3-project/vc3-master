@@ -202,7 +202,7 @@ class HandleRequests(VC3Task):
         if (running is None) or (idle is None) or (err is None):
             return ('pending', 'Requesting compute workers')
         elif running > 0:
-            return ('running', 'Growing virtual cluster.' % request.name)
+            return ('running', 'Growing virtual cluster.')
         else:
             return ('pending', 'Waiting for compute workers to start running.')
 
