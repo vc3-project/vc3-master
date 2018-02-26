@@ -88,6 +88,7 @@ class HandleHeadNodes(VC3Task):
     def process_request(self, request):
         self.log.debug("Processing headnode for '%s'", request.name)
 
+        headnode    = None
         next_state  = None
         reason      = None
 
