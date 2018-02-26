@@ -133,7 +133,7 @@ class HandleHeadNodes(VC3Task):
             if next_state == 'running':
                 (next_state, reason) = self.state_running(request, headnode)
 
-            if (next_state != 'terminated') or (next_state != 'failure'):
+            if (next_state != 'terminated') and (next_state != 'failure'):
                 if not self.check_timeout(request, headnode):
                     (next_state, reason) = ('failure', 'Headnode could no be contacted after %d seconds.' % self.node_max_no_contact_time)
 
@@ -263,7 +263,12 @@ class HandleHeadNodes(VC3Task):
     def check_timeout(self, request, headnode):
         now = time.time()
 
-        diff = now - self.last_contact_times[request.name]
+        diff = 0
+
+        if self.last_contact_times.has_key(request.name):
+            diff = now - self.last_contact_times[request.name]
+        else:
+            return True
         
         if diff > self.node_max_no_contact_time:
             self.log.warning('Headnode for %s could not be contacted after %d seconds. Declaring failure.', request.name, self.node_max_no_contact_time)
