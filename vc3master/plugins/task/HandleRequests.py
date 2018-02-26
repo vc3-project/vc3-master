@@ -177,18 +177,18 @@ class HandleRequests(VC3Task):
                 return ('initializing', 'Waiting for cluster components to come online.')
         except VC3InvalidRequest, e:
             self.log.warning("Invalid Request: %s" % str(e))
-            return ('terminated', 'Invalid request: %s' % str(e))
+            return ('terminated', 'Invalid virtual cluster specification: %s' % str(e))
 
     def state_initializing(self, request, headnode):
         if not headnode:
             self.log.debug('waiting for headnode to come online for %s' % request.name)
-            return ('initializing', 'Waiting for headnode to come online.')
+            return ('initializing', 'Headnode is being created.')
         if headnode.state == 'booting':
-            return ('initializing', 'Waiting for headnode to finish boot stage.' )
+            return ('initializing', 'Headnode is booting up.' )
         if headnode.state == 'initializing':
-            return ('initializing', 'Waiting for headnode to finish configuration stage.' )
+            return ('initializing', 'Headnode is being configured.' )
         if headnode.state == 'running':
-            return ('pending', 'Waiting for factory to start filling the request.')
+            return ('pending', 'Requesting compute workers.')
 
         return ('failure', 'Headnode is in state: %s' % headnode.state)
 
@@ -200,25 +200,26 @@ class HandleRequests(VC3Task):
         err     = self.job_count_with_state(request, 'error')
 
         if (running is None) or (idle is None) or (err is None):
-            return ('pending', 'Waiting for factory to configure itself.')
-        elif (running + idle + err) > 0:
-            return ('running', 'factory started fulfilling request %s.' % request.name)
+            return ('pending', 'Requesting compute workers')
+        elif running > 0:
+            return ('running', 'Growing virtual cluster.' % request.name)
         else:
-            return ('pending', 'Waiting for factory to start filling the request.')
+            return ('pending', 'Waiting for compute workers to start running.')
 
     def state_running(self, request):
         total_of_nodes = self.total_jobs_requested(request)
         running        = self.job_count_with_state(request, 'running')
+        idle           = self.job_count_with_state(request, 'idle')
 
-        if running is None:
+        if (running is None) or (idle is None):
             self.log.warning('Failure: status of request %s went away.' % request.name)
-            return ('terminating', 'Failure: status of request %s went away.' % request.name)
-        elif total_of_nodes > running:
-            return ('running', 'growing %d' % (total_of_nodes - running))
+            return ('terminating', 'Failure: status of virtual cluster %s went away.' % request.name)
+        elif total_of_nodes > (running + idle):
+            return ('running', 'Requesting %d more compute worker(s).' % (total_of_nodes - running))
         elif total_of_nodes < running:
-            return ('running', 'shrinking %d' % (running - total_of_nodes))
+            return ('running', 'Requesting %d less compute worker(s).' % (running - total_of_nodes))
         else:
-            return ('running', 'all requested jobs are running.')
+            return ('running', 'All requested compute workers are running.')
 
     def state_terminating(self, request):
         self.log.debug('request %s is terminating' % request.name)
@@ -227,13 +228,13 @@ class HandleRequests(VC3Task):
 
         if (running is None) or (idle is None):
             self.log.warning('Failure: status of request %s went away.' % request.name)
-            return ('cleanup', 'Failure: status of request %s went away.' % request.name)
+            return ('cleanup', 'Failure: status of virtual cluster %s went away.' % request.name)
         elif (running + idle) == 0:
-            return ('cleanup', 'Factory finished draining the request.')
+            return ('cleanup', 'All compute workers have been terminated.')
         elif request.action == 'terminate':
-            return ('terminating', 'terminate action was received.')
+            return ('terminating', 'terminate action is being processed.')
         else:
-            return ('terminating', None)
+            return ('terminating', 'Terminating all compute workers.')
 
 
     def state_cleanup(self, request):
@@ -241,7 +242,7 @@ class HandleRequests(VC3Task):
 
         # to fill cleanup here!
         if self.is_everything_cleaned_up(request):
-            return ('terminated', 'Garbage collected')
+            return ('terminated', 'Virtual cluster terminated succesfully')
 
         return ('cleanup', 'Waiting for headnode/others to terminate')
 
@@ -253,7 +254,8 @@ class HandleRequests(VC3Task):
             return ('new', 'relaunching cluster')
         else:
             self.log.debug('request %s is done' % request.name)
-            return ('terminated', 'Garbage collected')
+            return ('terminated', 'Virtual cluster terminated succesfully')
+
 
     def add_queues_conf(self, request, nodesets):
         '''
