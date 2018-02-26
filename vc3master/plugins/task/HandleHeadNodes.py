@@ -86,16 +86,16 @@ class HandleHeadNodes(VC3Task):
             self.log.warning("Could not read requests from infoservice. (%s)", e)
 
     def process_request(self, request):
+        self.log.debug("Processing headnode for '%s'", request.name)
+
         next_state  = None
         reason      = None
 
-        self.log.debug("Processing headnode for '%s'", request.name)
-
         if not request.headnode:
-            # Request has not yet indicated the name it wants for the headnode, so we simply return.
+            # Request has not yet indicated the name it wants for the headnode,
+            # so we simply return.
             return
 
-        headnode = None
         try:
             headnode = self.client.getNodeset(request.headnode)
         except InfoEntityMissingException:
@@ -115,45 +115,26 @@ class HandleHeadNodes(VC3Task):
                     self.log.error("Could not find headnode information for %s", request.name)
                     return
 
+            next_state, reason = headnode.state, headnode.state_reason
+
             if request.state == 'cleanup' or request.state == 'terminated':
-                self.terminate_server(request, headnode)
+                (next_state, reason) = self.state_terminating(request, headnode)
 
-            if headnode.state == 'new':
-                self.log.info('Creating new nodeset %s for request %s', request.headnode, request.name)
-                self.create_server(request, headnode)
+            if next_state == 'new':
+                (next_state, reason) = self.state_new(request, headnode)
 
-            if headnode.state == 'booting': 
-                if not headnode.app_host:
-                    headnode.app_host = self.__get_ip(request)
+            if next_state == 'booting': 
+                (next_state, reason) = self.state_booting(request, headnode)
 
-                if self.check_if_online(request, headnode):
-                    self.log.info('Initializing new server %s for request %s', request.headnode, request.name)
-                    headnode.state = 'initializing'
-                else: 
-                    self.log.debug('Headnode for %s could not yet be used for login.', request.name)
+            if next_state == 'initializing':
+                (next_state, reason) = self.state_initializing(request, headnode)
 
-            if headnode.state == 'initializing':
-                self.initialize_server(request, headnode)
+            if next_state == 'running':
+                (next_state, reason) = self.state_running(request, headnode)
 
-                if self.check_if_done_init(request, headnode):
-                    self.log.info('Done initializing server %s for request %s', request.headnode, request.name)
-                    if headnode.state != 'failure':
-                        self.report_running_server(request, headnode)
-                else:
-                    self.log.debug('Waiting for headnode for %s to finish initialization.', request.name)
-
-            if headnode.state == 'initializing' or headnode.state == 'running':
-                now = time.time()
-
-                if self.check_if_online(request, headnode):
-                    self.last_contact_times[request.name] = now
-                else:
-                    diff = self.last_contact_times[request.name] + self.node_max_no_contact_time - now
-                    if diff < 0:
-                        self.log.warning('Headnode for %s could not be contacted after %d seconds. Declaring failure.', request.name, self.node_max_no_contact_time)
-                        headnode.state = 'failure'
-                    else:
-                        self.log.warning('Headnode for %s could not be contacted! (waiting for %d seconds before declaring failure)', request.name, diff)
+            if (next_state != 'terminated') or (next_state != 'failure'):
+                if not self.check_timeout():
+                    (next_state, reason) = ('failure', 'Headnode could no be contacted after %d seconds.' % self.node_max_no_contact_time)
 
         except Exception, e:
             self.log.debug("Error while processing headnode: %s", e)
@@ -164,9 +145,12 @@ class HandleHeadNodes(VC3Task):
             self.initializing_count.pop(request.name, None)
 
             if headnode:
-                headnode.state = 'failure'
+                (next_state, reason) = ('failure', 'Internal error')
             else:
                 raise
+
+        headnode.state        = next_state
+        headnode.state_reason = state_reason
 
         try:
             if headnode.state == 'terminated':
@@ -177,7 +161,7 @@ class HandleHeadNodes(VC3Task):
             self.log.warning("Storing the new headnode state failed. (%s)", e)
             self.log.warning(traceback.format_exc(None))
 
-    def terminate_server(self, request, headnode):
+    def state_terminating(self, request, headnode):
         try:
             if headnode.state != 'terminated':
                 if self.initializers.get(request.name, None):
@@ -197,17 +181,54 @@ class HandleHeadNodes(VC3Task):
         except Exception, e:
             self.log.warning('Could not find headnode instance for request %s (%s)', request.name, e)
         finally:
-            headnode.state = 'terminated'
+            return ('terminated', 'Headnode succesfully terminated')
 
-    def create_server(self, request, headnode):
+    def state_new(self, request, headnode):
+        self.log.info('Creating new nodeset %s for request %s', request.headnode, request.name)
+
         server = self.boot_server(request, headnode)
 
         if not server:
-            headnode.state = 'failure'
             self.log.warning('Could not boot headnode for request %s', request.name)
+            return ('failure', 'Could not boot headnode.', request.name)
         else:
-            headnode.state = 'booting'
             self.log.debug('Waiting for headnode for request %s to come online', request.name)
+            return ('booting', 'Headnode is booting up.')
+
+    def state_booting(self, request, headnode):
+        if not headnode.app_host:
+            headnode.app_host = self.__get_ip(request)
+            self.last_contact_times[request.name] = time.time()
+
+        if self.check_if_online(request, headnode):
+            return ('initializing', 'Headnode is being configured.')
+        else: 
+            self.log.debug('Headnode for %s could not yet be used for login.', request.name)
+            return ('booting', 'Headnode is booting up.')
+
+
+    def state_initializing(self, request, headnode):
+        self.initialize_server(request, headnode)
+
+        (next_state, state_reason) = self.check_if_done_init(request, headnode)
+
+        if self.check_if_online(request, headnode):
+            self.last_contact_times[request.name] = time.time()
+
+        if next_state == 'running':
+            self.log.info('Done initializing server %s for request %s', request.headnode, request.name)
+            self.report_running_server(request, headnode)
+        elif next_state != 'failure':
+            self.log.debug('Waiting for headnode for %s to finish initialization.', request.name)
+        return (next_state, state_reason)
+
+
+    def state_running(self, request, headnode):
+        if self.check_if_online(request, headnode):
+            self.last_contact_times[request.name] = time.time()
+
+        return ('running', 'Headnode is ready to be used.')
+
 
     def check_if_online(self, request, headnode):
         if headnode.app_host is None:
@@ -237,6 +258,20 @@ class HandleHeadNodes(VC3Task):
         except subprocess.CalledProcessError:
             self.log.debug('Headnode for %s running at %s could not be accessed.', request.name, headnode.app_host)
             return False
+
+    def check_timeout(self, request, headnode):
+        now = time.time()
+
+        diff = now - self.last_contact_times[request.name]
+        
+        if diff > self.node_max_no_contact_time:
+            self.log.warning('Headnode for %s could not be contacted after %d seconds. Declaring failure.', request.name, self.node_max_no_contact_time)
+            return False
+        elif diff > self.node_max_no_contact_time/2:
+            self.log.warning('Headnode for %s could not be contacted! (waiting for %d seconds before declaring failure)', request.name, diff)
+            return True
+        else:
+            return True
 
     def boot_server(self, request, headnode):
         try:
@@ -298,7 +333,7 @@ class HandleHeadNodes(VC3Task):
             self.ansible_debug.flush()
 
             if pipe.returncode is None:
-                return False
+                return ('initializing', 'Headnode is being configured.')
 
             # the process is done when there is a returncode
             self.initializers.pop(request.name, None)
@@ -308,16 +343,16 @@ class HandleHeadNodes(VC3Task):
                 
                 if self.initializing_count[request.name] >= self.node_max_initializing_count:
                     self.log.warning("Could not initialize headnode after %d tries." % (self.node_max_initializing_count,))
-                    headnode.state = 'failure'
+                    return ('failure', 'Headnode could not be configured.')
                 else:
                     # Make another go at initializing...
-                    return False
+                    return ('initializing', 'Headnode is being configured.')
 
-            return True
+            return ('running', 'Headnode is ready to be used.')
 
         except Exception, e:
             self.log.warning('Error for headnode initializers for request %s (%s)', request.name, e)
-            headnode.state = 'failure'
+            return ('failure', 'Headnode could not be configured.')
 
     def report_running_server(self, request, headnode):
         try:
