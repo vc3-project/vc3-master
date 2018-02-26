@@ -133,7 +133,7 @@ class HandleHeadNodes(VC3Task):
                 (next_state, reason) = self.state_running(request, headnode)
 
             if (next_state != 'terminated') or (next_state != 'failure'):
-                if not self.check_timeout():
+                if not self.check_timeout(request, headnode):
                     (next_state, reason) = ('failure', 'Headnode could no be contacted after %d seconds.' % self.node_max_no_contact_time)
 
         except Exception, e:
@@ -259,7 +259,7 @@ class HandleHeadNodes(VC3Task):
             self.log.debug('Headnode for %s running at %s could not be accessed.', request.name, headnode.app_host)
             return False
 
-    def check_timeout(self, request, headnode):
+    def check_timeout(self, request, headnode)
         now = time.time()
 
         diff = now - self.last_contact_times[request.name]
