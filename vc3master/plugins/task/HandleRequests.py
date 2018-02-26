@@ -102,7 +102,7 @@ class HandleRequests(VC3Task):
             (next_state, reason) = self.state_cleanup(request)
 
         if next_state == 'terminated':
-            self.log.debug('request %s is done' % request.name)
+            (next_state, reason) = self.state_terminated(request)
 
         if next_state is not request.state or reason is not request.state_reason:
             self.log.debug("request '%s'  state '%s' -> %s (%s)'", request.name, request.state, next_state, str(reason))
@@ -245,6 +245,15 @@ class HandleRequests(VC3Task):
 
         return ('cleanup', 'Waiting for headnode/others to terminate')
 
+
+    def state_terminated(self, request):
+
+        if request.action and request.action == 'relaunch':
+            request.action = 'new'
+            return ('new', 'relaunching cluster')
+        else:
+            self.log.debug('request %s is done' % request.name)
+            return ('terminated', 'Garbage collected')
 
     def add_queues_conf(self, request, nodesets):
         '''
