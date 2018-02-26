@@ -150,7 +150,7 @@ class HandleHeadNodes(VC3Task):
                 raise
 
         headnode.state        = next_state
-        headnode.state_reason = state_reason
+        headnode.state_reason = reason
 
         try:
             if headnode.state == 'terminated':
