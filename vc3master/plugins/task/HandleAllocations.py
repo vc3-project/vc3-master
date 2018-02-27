@@ -107,7 +107,7 @@ class HandleAllocations(VC3Task):
                 self.log.debug('Attempting to contact %s to validate allocation %s' % (resource.accesshost, allocation.name))
                 self.validate(allocation, resource) # raises exception on failure
                 self.log.debug('Allocation %s has been validated.' % (allocation.name,))
-                return ('ready', 'Allocation credentials were used succesfully to login into the resource.' % allocation.resource)
+                return ('ready', 'Allocation credentials were used succesfully to login into the resource.')
             else:
                 self.log.debug('Cannot yet validate using %s' % resource.accessmethod)
                 return ('ready', 'Only resources that can be contacted through ssh can be validated at this time.')
