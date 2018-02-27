@@ -175,7 +175,7 @@ class HandleAllocations(VC3Task):
                 '-o', 'ConnectTimeout=10',
                 '-i', fh.name,
                 '-l', self.accountname,
-                '-p', resource.accessport
+                '-p', resource.accessport,
                 resource.accesshost, '--', '/bin/date'])
 
 
