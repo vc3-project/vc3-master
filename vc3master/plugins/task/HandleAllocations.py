@@ -50,7 +50,7 @@ class HandleAllocations(VC3Task):
         if allocation.state == 'configured':
             # nexts: configured, validated, invalid
             # waits for action = run
-            (next_state, reason) = self.state_authconfigured(allocation)
+            (next_state, reason) = self.state_configured(allocation)
         
         if allocation.state == 'validated':
             # nexts: validated, invalid, exhausted
