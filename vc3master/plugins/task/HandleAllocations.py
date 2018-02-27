@@ -96,7 +96,7 @@ class HandleAllocations(VC3Task):
         self.log.debug('Validating allocation %s' % allocation.name)
 
         if allocation.action != 'validate':
-            return ('configured', 'To validate allocation, please click on the allocation profile name %s to follow the instructions to copy the allocation credentials to the corresponding resource.')
+            return ('configured', 'Waiting for allocation to be validated.')
 
         allocation.action = None
 
