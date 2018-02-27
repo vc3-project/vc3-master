@@ -89,7 +89,7 @@ class HandleAllocations(VC3Task):
         self.log.debug('processing new allocation %s' % allocation.name)
         try:
             self.generate_auth_tokens(allocation)
-            return ('configured', 'Trying to validate allocation. Please click on the allocation profile name %s and follow the instructions to copy the allocation credentials to the corresponding resource.')
+            return ('configured', 'To validate allocation, please click on the allocation profile name %s to follow the instructions to copy the allocation credentials to the corresponding resource.')
         except Exception, e:
             self.log.error("Exception during auth generation %s"% str(e))
             self.log.error(traceback.format_exc(None))
@@ -103,7 +103,7 @@ class HandleAllocations(VC3Task):
         self.log.debug('Validating allocation %s' % allocation.name)
 
         if allocation.action != 'validate':
-            return ('configured', 'Trying to validate allocation. Please click on the allocation profile name %s and follow the instructions to copy the allocation credentials to the corresponding resource.')
+            return ('configured', 'To validate allocation, please click on the allocation profile name %s to follow the instructions to copy the allocation credentials to the corresponding resource.')
 
         allocation.action = None
 
@@ -119,8 +119,8 @@ class HandleAllocations(VC3Task):
                 self.log.debug('Cannot yet validate using %s' % resource.accessmethod)
                 return ('validated', 'Only resources that can be contacted through ssh can be validated at this time.')
 
-        except subprocess.CalledProcessError:
-            self.log.debug('Allocation %s could not be validated.' % (allocation.name,))
+        except subprocess.CalledProcessError, e:
+            self.log.debug('Allocation %s could not be validated: %s' % (allocation.name, e))
             return ('configured', 'Could not validate allocation. Please click on the allocation profile name %s and follow the instructions to copy the allocation credentials to the corresponding resource.')
         except InfoConnectionFailure, e:
             allocation.action = 'validate'
