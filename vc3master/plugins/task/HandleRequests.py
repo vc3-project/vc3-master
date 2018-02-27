@@ -183,14 +183,14 @@ class HandleRequests(VC3Task):
         if not headnode:
             self.log.debug('waiting for headnode to come online for %s' % request.name)
             return ('initializing', 'Headnode is being created.')
-        if headnode.state == 'booting':
-            return ('initializing', 'Headnode is booting up.' )
-        if headnode.state == 'initializing':
-            return ('initializing', 'Headnode is being configured.' )
         if headnode.state == 'running':
             return ('pending', 'Requesting compute workers.')
+        if headnode.state == 'failure':
+            return ('failure', 'Error while initializing the headnode: %s' % headnode.state_reason)
 
-        return ('failure', 'Headnode is in state: %s' % headnode.state)
+        # in any other case, use the state from the headnode:
+        return ('initializing', headnode.state_reason)
+
 
     def state_pending(self, request):
         self.log.debug('waiting for factory to start fulfilling request %s' % request.name)
