@@ -109,8 +109,6 @@ class HandleAllocations(VC3Task):
         try:
             resource = self.client.getResource(allocation.resource)
 
-            if resource.accessmethod != 'ssh':
-
             if resource.accessmethod == 'ssh':
                 self.log.debug('Attempting to contact %s to validate allocation %s' % (resource.accesshost, allocation.name))
                 self.validate(allocation, resource) # raises exception on failure
