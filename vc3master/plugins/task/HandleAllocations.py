@@ -40,38 +40,31 @@ class HandleAllocations(VC3Task):
             self.log.warning("Could not read allocations from infoservice. (%s)", e)
     
     def process_allocation(self, allocation):
-        next_state  = None
+        next_state  = allocation.state
         reason      = None
 
         self.log.debug("Processing allocation '%s'", allocation.name)
-        if allocation.state == 'new': 
-            # nexts: configured, invalid
+        if next_state == 'new': 
+            # nexts: configured, failure
             (next_state, reason) = self.state_new(allocation)
 
-        if allocation.state == 'configured':
-            # nexts: configured, validated, invalid
-            # waits for action = run
+        if next_state == 'validation_failure':
+            # nexts: failure, configured
+            (next_state, reason) = self.state_validation_failure(allocation)
+        
+        if next_state == 'configured':
+            # nexts: configured, ready, validation_failure, failure
             (next_state, reason) = self.state_configured(allocation)
-        
-        if allocation.state == 'validated':
-            # nexts: validated, invalid, exhausted
-            # waits for cluster_state = configured | running
-            (next_state, reason) = self.state_validated(allocation)
 
-        if allocation.state == 'exhausted':
-            # nexts: exhausted
-            # waits for cluster_state = configured | running
-            (next_state, reason) = self.state_exhausted(allocation)
-
-        if allocation.state == 'invalid':
-            # nexts: invalid
-            (next_state, reason) = self.state_invalid(allocation)    
-
-        if allocation.state == 'ready':
+        if next_state == 'ready':
             # nexts: ready
-            (next_state, reason) = self.state_ready(allocation)    
-        
-        if next_state is not allocation.state:
+            (next_state, reason) = self.state_ready(allocation)
+
+        if next_state == 'failure':
+            # nexts: failure
+            (next_state, reason) = self.state_failure(allocation)    
+
+        if (next_state is not allocation.state) or (reason is not allocation.state_reason):
             try:
                 self.log.debug("allocation '%s'  state '%s' -> %s'", allocation.name, allocation.state, next_state)
                 allocation.state        = next_state
@@ -89,12 +82,12 @@ class HandleAllocations(VC3Task):
         self.log.debug('processing new allocation %s' % allocation.name)
         try:
             self.generate_auth_tokens(allocation)
-            return ('configured', 'To validate allocation, please click on the allocation profile name %s to follow the instructions to copy the allocation credentials to the corresponding resource.')
+            return ('configured', 'Waiting for allocation to be validated.')
         except Exception, e:
             self.log.error("Exception during auth generation %s"% str(e))
             self.log.error(traceback.format_exc(None))
-            return ('invalid', 'Invalid allocation: %s' % e.reason)
-        return ('invalid', 'Failure: invalid allocation.')
+            return ('failure', 'Invalid allocation: %s' % e.reason)
+        return ('failure', 'Failure: invalid allocation.')
 
     def state_configured(self, allocation):
         '''
@@ -114,42 +107,33 @@ class HandleAllocations(VC3Task):
                 self.log.debug('Attempting to contact %s to validate allocation %s' % (resource.accesshost, allocation.name))
                 self.validate(allocation, resource) # raises exception on failure
                 self.log.debug('Allocation %s has been validated.' % (allocation.name,))
-                return ('validated', 'Resource %s could be contacted with the allocation credentials.' % allocation.resource)
+                return ('ready', 'Allocation credentials were used succesfully to login into the resource.' % allocation.resource)
             else:
                 self.log.debug('Cannot yet validate using %s' % resource.accessmethod)
-                return ('validated', 'Only resources that can be contacted through ssh can be validated at this time.')
+                return ('ready', 'Only resources that can be contacted through ssh can be validated at this time.')
 
         except subprocess.CalledProcessError, e:
             self.log.debug('Allocation %s could not be validated: %s' % (allocation.name, e))
-            return ('configured', 'Could not validate allocation. Please click on the allocation profile name %s and follow the instructions to copy the allocation credentials to the corresponding resource.')
+            return ('validation_failure', 'Could not validate allocation.')
         except InfoConnectionFailure, e:
             allocation.action = 'validate'
-            return ('configured', 'Could not validate allocation because of a transient connectivity error. Trying again...')
+            return ('configured', 'Could not validate allocation because of a transient connectivity error. Trying again.')
         except Exception, e:
             self.log.debug('Allocation %s could not be validated: %s' % (allocation.name, e))
-            return ('invalid', 'There was an internal error: %s' % e)
-
-    def state_validated(self, allocation):
-        '''
-        Confirms that allocation is not exhausted. 
-        '''
-        return ('ready', 'Allocation is ready to be used.')    
-
-    def state_exhausted(self, allocation):
-        '''
-        Confirms that allocation is not exhausted. 
-        '''
-        return ('ready', 'Allocation is ready to be used.')    
-
-    def state_invalid(self, allocation):
-        '''
-        Reports that there is something wrong with the allocation.
-        '''
-        return ('invalid', allocation.state_reason)  
+            return ('failure', 'There was an internal error: %s' % e)
 
     def state_ready(self, allocation):
         return ('ready', 'Allocation is ready to be used.')    
-    
+
+    def state_failure(self, allocation):
+        return ('failure', allocation.state_reason)  
+
+    def state_validation_failure(self, allocation):
+        if allocation.action == 'validate':
+            return ('configured', 'Retrying to validate allocation')
+        else:
+            return ('validation_failure', allocation.state_reason)
+
     def generate_auth_tokens(self, allocation):
         """ 
         Generate SSH priv/pub keys and base64 encode them, placing them in allocation 
@@ -165,7 +149,7 @@ class HandleAllocations(VC3Task):
         allocation.privtoken = encoded_priv
         
     def validate(self, allocation, resource):
-        with tempfile.NamedTemporaryFile(mode='w+b', bufsize=0, delete=True) as fh:
+        with tempfile.NamedTemporaryFile(mode='w+b', bufsize=0, delete=False) as fh:
             fh.write(b64decode(allocation.privtoken))
             fh.seek(0)
             fh.flush()
