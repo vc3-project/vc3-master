@@ -176,7 +176,7 @@ class HandleAllocations(VC3Task):
                 '-o', 'StrictHostKeyChecking=no',
                 '-o', 'ConnectTimeout=10',
                 '-i', fh.name,
-                '-l', self.accountname,
+                '-l', allocation.accountname,
                 '-p', resource.accessport,
                 resource.accesshost, '--', '/bin/date'])
 
