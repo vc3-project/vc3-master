@@ -170,6 +170,8 @@ class HandleAllocations(VC3Task):
             fh.seek(0)
             fh.flush()
 
+            os.chmod(fh.name, 0400)
+
             subprocess.check_call([
                 'ssh', 
                 '-o', 'UserKnownHostsFile=/dev/null',
