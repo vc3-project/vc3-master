@@ -8,6 +8,7 @@ import os
 import json
 import traceback
 import subprocess
+import tempfile
 
 from vc3master.task import VC3Task
 from vc3infoservice.infoclient import InfoConnectionFailure, InfoEntityMissingException
