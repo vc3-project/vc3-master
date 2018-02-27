@@ -165,7 +165,7 @@ class HandleAllocations(VC3Task):
         allocation.privtoken = encoded_priv
         
     def validate(self, allocation, resource):
-        with tempfile.NamedTemporaryFile(mode='w+b', buffering=0, delete=True) as fh:
+        with tempfile.NamedTemporaryFile(mode='w+b', bufsize=0, delete=True) as fh:
             fh.write(b64decode(allocation.privtoken))
             fh.seek(0)
             fh.flush()
