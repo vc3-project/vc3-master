@@ -125,6 +125,7 @@ class HandleAllocations(VC3Task):
             allocation.action = 'validate'
             return ('configured', 'Could not validate allocation because of a transient connectivity error. Trying again...')
         except Exception, e:
+            self.log.debug('Allocation %s could not be validated: %s' % (allocation.name, e))
             return ('invalid', 'There was an internal error: %s' % e)
 
     def state_validated(self, allocation):
