@@ -38,6 +38,8 @@ class HandleHeadNodes(VC3Task):
 
         self.nova = novaclient.Client( **nova_conf );
 
+        self.node_prefix           = self.config.get(section, 'node_prefix')
+
         self.node_image            = self.config.get(section, 'node_image')
         self.node_flavor           = self.config.get(section, 'node_flavor')
         self.node_user             = self.config.get(section, 'node_user')
@@ -167,7 +169,7 @@ class HandleHeadNodes(VC3Task):
                     except Exception, e:
                         self.log.warning('Exception while killing initializer for %s: %s', request.name, e)
 
-                server = self.nova.servers.find(name=request.name)
+                server = self.nova.servers.find(name=self.vm_name(request))
                 self.log.debug('Teminating headnode %s for request %s', request.headnode, request.name)
                 server.delete()
 
@@ -277,14 +279,14 @@ class HandleHeadNodes(VC3Task):
 
     def boot_server(self, request, headnode):
         try:
-            server = self.nova.servers.find(name=request.name)
+            server = self.nova.servers.find(name = self.vm_name(request))
             self.log.info('Found headnode at %s for request %s', request.headnode, request.name)
             return server
         except Exception, e:
             pass
 
         self.log.info('Booting new headnode for request %s...', request.name)
-        server = self.nova.servers.create(name = request.name, image = self.node_image, flavor = self.node_flavor, key_name = self.node_public_key_name, security_groups = self.node_security_groups, nics = [{'net-id' : self.node_network_id}])
+        server = self.nova.servers.create(name = self.vm_name(request), image = self.node_image, flavor = self.node_flavor, key_name = self.node_public_key_name, security_groups = self.node_security_groups, nics = [{'net-id' : self.node_network_id}])
 
         return server
 
@@ -438,7 +440,7 @@ class HandleHeadNodes(VC3Task):
 
     def __get_ip(self, request):
         try:
-            server = self.nova.servers.find(name=request.name)
+            server = self.nova.servers.find(name=self.vm_name(request))
 
             if server.status != 'ACTIVE':
                 self.log.debug("Headnode for request %s is not active yet.", request.name)
@@ -458,4 +460,7 @@ class HandleHeadNodes(VC3Task):
             raise e
 
         return None
+
+    def vm_name(self, request):
+        return self.node_prefix + request.name
 
