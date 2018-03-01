@@ -272,7 +272,7 @@ class HandleHeadNodes(VC3Task):
             return ('failure', 'Headnode could no be contacted after %d seconds.' % self.node_max_no_contact_time)
         elif diff > self.node_max_no_contact_time/2:
             self.log.warning('Headnode for %s could not be contacted! (waiting for %d seconds before declaring failure)', request.name, self.node_max_no_contact_time - diff)
-            reason = reason + " (Headnode could not be contacted. This may be a transient error. Waiting for {:d} seconds before declaring failure.)".format(self.node_max_no_contact_time - diff)
+            reason = reason + " (Headnode could not be contacted. This may be a transient error. Waiting for {:.0f} seconds before declaring failure.)".format(self.node_max_no_contact_time - diff)
             return (next_state, reason)
         else:
             return (next_state, reason)
