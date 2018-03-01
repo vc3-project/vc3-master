@@ -141,12 +141,8 @@ class HandleHeadNodes(VC3Task):
             self.log.debug("Error while processing headnode: %s", e)
             self.log.warning(traceback.format_exc(None))
 
-            self.initializers.pop(request.name, None)
-            self.last_contact_times.pop(request.name, None)
-            self.initializing_count.pop(request.name, None)
-
             if headnode:
-                (next_state, reason) = ('failure', 'Internal error')
+                (next_state, reason) = ('failure', 'Internal error: %s', e)
             else:
                 raise
 
