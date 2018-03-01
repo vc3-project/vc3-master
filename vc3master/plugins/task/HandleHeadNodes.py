@@ -134,8 +134,7 @@ class HandleHeadNodes(VC3Task):
                 (next_state, reason) = self.state_running(request, headnode)
 
             if (next_state != 'terminated') and (next_state != 'failure'):
-                if not self.check_timeout(request, headnode):
-                    (next_state, reason) = ('failure', 'Headnode could no be contacted after %d seconds.' % self.node_max_no_contact_time)
+                (next_state, reason) = self.check_timeout(request, next_state, reason)
 
         except Exception, e:
             self.log.debug("Error while processing headnode: %s", e)
@@ -256,7 +255,7 @@ class HandleHeadNodes(VC3Task):
             self.log.debug('Headnode for %s running at %s could not be accessed.', request.name, headnode.app_host)
             return False
 
-    def check_timeout(self, request, headnode):
+    def check_timeout(self, request, next_state, reason):
         now = time.time()
 
         diff = 0
@@ -264,16 +263,17 @@ class HandleHeadNodes(VC3Task):
         if self.last_contact_times.has_key(request.name):
             diff = now - self.last_contact_times[request.name]
         else:
-            return True
-        
+            return (next_state, reason)
+
         if diff > self.node_max_no_contact_time:
             self.log.warning('Headnode for %s could not be contacted after %d seconds. Declaring failure.', request.name, self.node_max_no_contact_time)
-            return False
+            return ('failure', 'Headnode could no be contacted after %d seconds.' % self.node_max_no_contact_time)
         elif diff > self.node_max_no_contact_time/2:
             self.log.warning('Headnode for %s could not be contacted! (waiting for %d seconds before declaring failure)', request.name, self.node_max_no_contact_time - diff)
-            return True
+            reason = reason + " (Headnode could not be contacted. This may be a transient error. Waiting for %d seconds before declaring failure.)" % self.node_max_no_contact_time - diff
+            return (next_state, reason)
         else:
-            return True
+            return (next_state, reason)
 
     def boot_server(self, request, headnode):
         try:
