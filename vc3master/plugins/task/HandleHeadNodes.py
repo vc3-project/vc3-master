@@ -141,7 +141,7 @@ class HandleHeadNodes(VC3Task):
             self.log.warning(traceback.format_exc(None))
 
             if headnode:
-                (next_state, reason) = ('failure', 'Internal error: %s', e)
+                (next_state, reason) = ('failure', 'Internal error: %s' % e)
             else:
                 raise
 
@@ -422,6 +422,8 @@ class HandleHeadNodes(VC3Task):
                 description = 'Headnode nodeset automatically created: ' + request.headnode,
                 displayname = request.headnode)
 
+        self.last_contact_times[request.name] = time.time()
+
         return headnode
 
     def delete_headnode_nodeset(self, request):
@@ -444,7 +446,7 @@ class HandleHeadNodes(VC3Task):
 
         except Exception, e:
             self.log.warning('Could not find headnode for request %s (%s)', request.name, e)
-            raise e
+            return None
 
         try:
             for network in server.networks.keys():
