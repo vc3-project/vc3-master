@@ -173,10 +173,7 @@ John Hover <jhover@bnl.gov>
                           type="int",
                           help="Number of log backups to keep.")
 
-        default_conf = "/etc/vc3/vc3-master.conf"
-        if 'VC3_SERVICES_HOME' in os.environ:
-            # if running inside the builder...
-            default_conf = ','.join([default_conf, os.path.expanduser('~/vc3-services/etc/vc3-master.conf'), os.path.expanduser('~/vc3-services/etc/vc3-master-local.conf')])
+        default_conf = ','.join(['/etc/vc3/vc3-master.conf', os.path.expanduser('~/.local/etc/vc3-master.conf'), os.path.expanduser('~/.local/etc/vc3-master-local.conf')])
 
         parser.add_option("--conf", dest="confFiles", 
                           default=default_conf,
