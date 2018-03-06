@@ -266,6 +266,7 @@ class HandleHeadNodes(VC3Task):
         if self.last_contact_times.has_key(request.name):
             diff = now - self.last_contact_times[request.name]
         else:
+            self.last_contact_times[request.name] = now
             return (next_state, reason)
 
         self.log.debug('Headnode for %s last contacted %d seconds ago.', request.name, diff)
