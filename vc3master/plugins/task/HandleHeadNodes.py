@@ -267,6 +267,8 @@ class HandleHeadNodes(VC3Task):
         else:
             return (next_state, reason)
 
+        self.log.debug('Headnode for %s last contacted %d seconds ago.', request.name, diff)
+
         if diff > self.node_max_no_contact_time:
             self.log.warning('Headnode for %s could not be contacted after %d seconds. Declaring failure.', request.name, self.node_max_no_contact_time)
             return ('failure', 'Headnode could no be contacted after %d seconds.' % self.node_max_no_contact_time)
