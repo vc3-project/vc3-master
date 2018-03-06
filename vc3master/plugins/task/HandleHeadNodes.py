@@ -196,7 +196,8 @@ class HandleHeadNodes(VC3Task):
     def state_booting(self, request, headnode):
         if not headnode.app_host:
             headnode.app_host = self.__get_ip(request)
-            self.last_contact_times[request.name] = time.time()
+            if headnode.app_host:
+                self.last_contact_times[request.name] = time.time()
 
         if self.check_if_online(request, headnode):
             return ('initializing', 'Headnode is being configured.')
