@@ -68,7 +68,7 @@ class HandleRequests(VC3Task):
 
         if not self.is_finishing_state(next_state):
             if headnode and headnode.state == 'failure':
-                (next_state, reason) = ('failure', 'There was a failure with headnode. Please terminate the virtual cluster.')
+                (next_state, reason) = ('failure', 'There was a failure with headnode: %s \nPlease terminate the virtual cluster.' % headnode.state_reason)
 
         if request.action and request.action == 'terminate':
             if not self.is_finishing_state(next_state) or request.state == 'failure':
