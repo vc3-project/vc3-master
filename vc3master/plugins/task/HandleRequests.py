@@ -137,26 +137,42 @@ class HandleRequests(VC3Task):
 
         bad_reasons = []
 
-        if not request.project:
-            bad_reasons.append("Request '%s' does not belong to any project." % request.name)
-        else:
-            try:
-                project = self.client.getProject(request.project)
+        try:
+            if not request.project:
+                bad_reasons.append("Virtual cluster '%s' does not belong to any project." % request.name)
+            else:
+                try:
+                    project = self.client.getProject(request.project)
 
-                if project.members:
-                    for member_name in project.members:
-                        try:
-                            member = self.client.getUser(member_name)
-                            if not member.sshpubstring:
-                                bad_reasons.append("User '%s' in project '%s' does not have a ssh-key." % (member_name, request.project))
-                            elif not self.client.validate_ssh_pub_key(member.sshpubstring):
-                                bad_reasons.append("User '%s' in project '%s' has an invalid ssh-key." % (member_name, request.project))
-                        except InfoEntityMissingException:
-                            bad_reasons.append("User '%s' in project '%s' is not defined." % (member_name, request.project))
-                else:
-                    bad_reasons.append("Project '%s' for request '%s' did not define any members." % (request.project, request.name))
-            except InfoEntityMissingException:
-                bad_reasons.append("Project '%s' for request '%s' is not defined." % (request.project, request.name))
+                    if not (request.allocations and len(request.allocations) > 0):
+                        bad_reasons.append("Virtual cluster did not define any allocations.")
+
+                    if not (project.allocations and len(project.allocations) > 0):
+                        bad_reasons.append("Project '%s' did not define any allocations." % (request.project, ))
+
+                    if request.allocations and project.allocations:
+                        for a in request.allocations:
+                            if a not in project.allocations:
+                                bad_reasons.append("Allocation '%s' does not belong to project '%s'." % (a, request.project))
+
+                    if project.members and len(project.members) > 0:
+                        if request.owner not in project.members:
+                            bad_reasons.append("User '%s' that created the virtual cluster does not belong to project '%s'." % (request.owner, request.project))
+                        for member_name in project.members:
+                            try:
+                                member = self.client.getUser(member_name)
+                                if not member.sshpubstring:
+                                    bad_reasons.append("User '%s' in project '%s' does not have a ssh-key." % (member_name, request.project))
+                                elif not self.client.validate_ssh_pub_key(member.sshpubstring):
+                                    bad_reasons.append("User '%s' in project '%s' has an invalid ssh-key." % (member_name, request.project))
+                            except InfoEntityMissingException:
+                                bad_reasons.append("User '%s' in project '%s' is not defined." % (member_name, request.project))
+                    else:
+                        bad_reasons.append("Project '%s' did not define any members." % (request.project,))
+                except InfoEntityMissingException:
+                    bad_reasons.append("Project '%s' is not defined." % (request.project,))
+        except Exception, e:
+            bad_reasons.append("There was an error while validating virtual cluster request: %s." % (e,))
 
         if not bad_reasons:
             # fill-in the desired headnode name. This will eventually come from
