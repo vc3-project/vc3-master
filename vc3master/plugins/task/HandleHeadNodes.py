@@ -195,7 +195,7 @@ class HandleHeadNodes(VC3Task):
                 return ('booting', 'Headnode is booting up.')
         except Exception, e:
             self.log.warning('Error in request to openstack: %s', e)
-            return ('failure', 'Could not boot headnode because of an internal error: %s.', e)
+            return ('failure', 'Could not boot headnode because of an internal error: %s.' % e)
 
     def state_booting(self, request, headnode):
         if not headnode.app_host:
