@@ -193,7 +193,7 @@ class HandleRequests(VC3Task):
                 return ('initializing', 'Waiting for cluster components to come online.')
         except VC3InvalidRequest, e:
             self.log.warning("Invalid Request: %s" % str(e))
-            return ('terminated', 'Invalid virtual cluster specification: %s' % str(e))
+            return ('failure', 'Please terminate the cluster.\nInvalid virtual cluster specification:\n%s' % str(e))
 
     def state_initializing(self, request, headnode):
         if not headnode:
