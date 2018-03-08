@@ -184,14 +184,18 @@ class HandleHeadNodes(VC3Task):
     def state_new(self, request, headnode):
         self.log.info('Creating new nodeset %s for request %s', request.headnode, request.name)
 
-        server = self.boot_server(request, headnode)
+        try:
+            server = self.boot_server(request, headnode)
 
-        if not server:
-            self.log.warning('Could not boot headnode for request %s', request.name)
-            return ('failure', 'Could not boot headnode.', request.name)
-        else:
-            self.log.debug('Waiting for headnode for request %s to come online', request.name)
-            return ('booting', 'Headnode is booting up.')
+            if not server:
+                self.log.warning('Could not boot headnode for request %s', request.name)
+                return ('failure', 'Could not boot headnode.', request.name)
+            else:
+                self.log.debug('Waiting for headnode for request %s to come online', request.name)
+                return ('booting', 'Headnode is booting up.')
+        except BadRequest, e:
+            self.log.warning('Error in request to openstack: %s', e)
+            return ('failure', 'Could not boot headnode because of an internal error: %s', request.name, e)
 
     def state_booting(self, request, headnode):
         if not headnode.app_host:
