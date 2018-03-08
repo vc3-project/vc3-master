@@ -193,7 +193,7 @@ class HandleHeadNodes(VC3Task):
             else:
                 self.log.debug('Waiting for headnode for request %s to come online', request.name)
                 return ('booting', 'Headnode is booting up.')
-        except BadRequest, e:
+        except Exception, e:
             self.log.warning('Error in request to openstack: %s', e)
             return ('failure', 'Could not boot headnode because of an internal error: %s', request.name, e)
 
