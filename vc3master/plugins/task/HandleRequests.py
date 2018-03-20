@@ -478,6 +478,7 @@ class HandleRequests(VC3Task):
         s  = ' '
         s += ' --home=.'
         s += ' --install=.'
+        s += ' --bosco-workaround'
 
         envs = []
 
