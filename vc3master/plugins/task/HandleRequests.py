@@ -497,6 +497,10 @@ class HandleRequests(VC3Task):
             for k in environment.envmap:
                 vs.append("%s=%s" % (k, environment.envmap[k]))
 
+            if environment.required_os is not None:
+                os = '--require-os %s' %environment.required_os
+                s += ' ' + os
+            
             reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
             vars  = ' '.join(['--var %s' % x for x in vs])
 
