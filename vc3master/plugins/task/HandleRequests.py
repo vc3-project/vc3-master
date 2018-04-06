@@ -336,11 +336,11 @@ class HandleRequests(VC3Task):
 
         if resource.accesstype == 'batch':
             config.set(section_name, 'batchsubmitplugin',           'CondorSSHRemoteManager')
-            config.set(section_name, 'batchsubmit.condorssh.user',  allocation.accountname)
-            config.set(section_name, 'batchsubmit.condorssh.batch', resource.accessflavor)
-            config.set(section_name, 'batchsubmit.condorssh.host',  resource.accesshost)
-            config.set(section_name, 'batchsubmit.condorssh.port',  str(resource.accessport))
-            config.set(section_name, 'batchsubmit.condorssh.authprofile', allocation.name)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.user',  allocation.accountname)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.batch', resource.accessflavor)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.host',  resource.accesshost)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.port',  str(resource.accessport))
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.authprofile', allocation.name)
             config.set(section_name, 'executable',                  '%(builder)s')
 
             if nodeset.app_type == 'htcondor' and nodeset.app_role == 'worker-nodes':
