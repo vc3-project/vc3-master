@@ -285,7 +285,7 @@ class HandleRequests(VC3Task):
         config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
 
         if resource.accesstype == 'batch':
-            config.set(section_name, 'batchsubmitplugin',           'CondorSSH')
+            config.set(section_name, 'batchsubmitplugin',           'CondorSSHRemoteManager')
             config.set(section_name, 'batchsubmit.condorssh.user',  allocation.accountname)
             config.set(section_name, 'batchsubmit.condorssh.batch', resource.accessflavor)
             config.set(section_name, 'batchsubmit.condorssh.host',  resource.accesshost)
