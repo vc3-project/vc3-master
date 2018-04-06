@@ -64,17 +64,18 @@ class HandleRequests(VC3Task):
 
         (next_state, reason) = (request.state, request.state_reason)
 
-        nodesets           = self.getNodesets(request)
-        request.statusinfo = self.compute_job_status_summary(request.statusraw, nodesets, next_state)
         headnode = self.getHeadNode(request)
 
         if not self.is_finishing_state(next_state):
             if headnode and headnode.state == 'failure':
-                (next_state, reason) = ('failure', 'There was a failure with headnode. Please terminate the virtual cluster.')
+                (next_state, reason) = ('failure', 'There was a failure with headnode: %s \nPlease terminate the virtual cluster.' % headnode.state_reason)
 
         if request.action and request.action == 'terminate':
             if not self.is_finishing_state(next_state) or request.state == 'failure':
                 (next_state, reason) = ('terminating', 'received terminate action')
+
+        nodesets           = self.getNodesets(request)
+        request.statusinfo = self.compute_job_status_summary(request.statusraw, nodesets, next_state)
 
         if  next_state == 'new': 
             # nexts: initializing, terminating
@@ -101,7 +102,7 @@ class HandleRequests(VC3Task):
             (next_state, reason) = self.state_cleanup(request)
 
         if next_state == 'terminated':
-            self.log.debug('request %s is done' % request.name)
+            (next_state, reason) = self.state_terminated(request)
 
         if next_state is not request.state or reason is not request.state_reason:
             self.log.debug("request '%s'  state '%s' -> %s (%s)'", request.name, request.state, next_state, str(reason))
@@ -110,9 +111,21 @@ class HandleRequests(VC3Task):
         else:
             self.log.debug("request '%s' remained in state '%s'", request.name, request.state)
 
-        if not self.is_initializing_state(request.state) and request.state != 'terminated':
+        if self.is_configuring_state(request.state):
             self.add_queues_conf(request, nodesets)
             self.add_auth_conf(request)
+        else:
+            request.queuesconf = None
+            request.authconf = None
+
+    def is_configuring_state(self, state):
+        if self.is_initializing_state(state):
+            return False
+
+        if state == 'terminated':
+            return False
+
+        return True
 
     def is_initializing_state(self, state):
         return state in ['new', 'initializing']
@@ -124,26 +137,42 @@ class HandleRequests(VC3Task):
 
         bad_reasons = []
 
-        if not request.project:
-            bad_reasons.append("Request '%s' does not belong to any project." % request.name)
-        else:
-            try:
-                project = self.client.getProject(request.project)
+        try:
+            if not request.project:
+                bad_reasons.append("Virtual cluster '%s' does not belong to any project." % request.name)
+            else:
+                try:
+                    project = self.client.getProject(request.project)
 
-                if project.members:
-                    for member_name in project.members:
-                        try:
-                            member = self.client.getUser(member_name)
-                            if not member.sshpubstring:
-                                bad_reasons.append("User '%s' in project '%s' does not have a ssh-key." % (member_name, request.project))
-                            elif not self.client.validate_ssh_pub_key(member.sshpubstring):
-                                bad_reasons.append("User '%s' in project '%s' has an invalid ssh-key." % (member_name, request.project))
-                        except InfoEntityMissingException:
-                            bad_reasons.append("User '%s' in project '%s' is not defined." % (member_name, request.project))
-                else:
-                    bad_reasons.append("Project '%s' for request '%s' did not define any members." % (request.project, request.name))
-            except InfoEntityMissingException:
-                bad_reasons.append("Project '%s' for request '%s' is not defined." % (request.project, request.name))
+                    if not (request.allocations and len(request.allocations) > 0):
+                        bad_reasons.append("Virtual cluster did not define any allocations.")
+
+                    if not (project.allocations and len(project.allocations) > 0):
+                        bad_reasons.append("Project '%s' did not define any allocations." % (request.project, ))
+
+                    if request.allocations and project.allocations:
+                        for a in request.allocations:
+                            if a not in project.allocations:
+                                bad_reasons.append("Allocation '%s' does not belong to project '%s'." % (a, request.project))
+
+                    if project.members and len(project.members) > 0:
+                        if request.owner not in project.members:
+                            bad_reasons.append("User '%s' that created the virtual cluster does not belong to project '%s'." % (request.owner, request.project))
+                        for member_name in project.members:
+                            try:
+                                member = self.client.getUser(member_name)
+                                if not member.sshpubstring:
+                                    bad_reasons.append("User '%s' in project '%s' does not have a ssh-key." % (member_name, request.project))
+                                elif not self.client.validate_ssh_pub_key(member.sshpubstring):
+                                    bad_reasons.append("User '%s' in project '%s' has an invalid ssh-key." % (member_name, request.project))
+                            except InfoEntityMissingException:
+                                bad_reasons.append("User '%s' in project '%s' is not defined." % (member_name, request.project))
+                    else:
+                        bad_reasons.append("Project '%s' did not define any members." % (request.project,))
+                except InfoEntityMissingException:
+                    bad_reasons.append("Project '%s' is not defined." % (request.project,))
+        except Exception, e:
+            bad_reasons.append("There was an error while validating virtual cluster request: %s." % (e,))
 
         if not bad_reasons:
             # fill-in the desired headnode name. This will eventually come from
@@ -164,40 +193,49 @@ class HandleRequests(VC3Task):
                 return ('initializing', 'Waiting for cluster components to come online.')
         except VC3InvalidRequest, e:
             self.log.warning("Invalid Request: %s" % str(e))
-            return ('terminated', 'Invalid request: %s' % str(e))
+            return ('failure', 'Please terminate the cluster.\nInvalid virtual cluster specification:\n%s' % str(e))
 
     def state_initializing(self, request, headnode):
-        if not headnode or headnode.state != 'running':
+        if not headnode:
             self.log.debug('waiting for headnode to come online for %s' % request.name)
-            return ('initializing', 'Waiting for headnode to come online.')
+            return ('initializing', 'Headnode is being created.')
+        if headnode.state == 'running':
+            return ('pending', 'Requesting compute workers.')
+        if headnode.state == 'failure':
+            return ('failure', 'Error while initializing the headnode: %s' % headnode.state_reason)
 
-        return ('pending', 'Waiting for factory to start filling the request.')
+        # in any other case, use the state from the headnode:
+        return ('initializing', headnode.state_reason)
+
 
     def state_pending(self, request):
         self.log.debug('waiting for factory to start fulfilling request %s' % request.name)
 
         running = self.job_count_with_state(request, 'running')
+        idle    = self.job_count_with_state(request, 'idle')
+        err     = self.job_count_with_state(request, 'error')
 
-        if not running:
-            return ('pending', 'Waiting for factory to configure itself.')
+        if (running is None) or (idle is None) or (err is None):
+            return ('pending', 'Requesting compute workers')
         elif running > 0:
-            return ('running', 'factory started fulfilling request %s.' % request.name)
+            return ('running', 'Growing virtual cluster.')
         else:
-            return ('pending', 'Waiting for factory to start filling the request.')
+            return ('pending', 'Waiting for compute workers to start running.')
 
     def state_running(self, request):
         total_of_nodes = self.total_jobs_requested(request)
         running        = self.job_count_with_state(request, 'running')
+        idle           = self.job_count_with_state(request, 'idle')
 
-        if running is None:
+        if (running is None) or (idle is None):
             self.log.warning('Failure: status of request %s went away.' % request.name)
-            return ('terminating', 'Failure: status of request %s went away.' % request.name)
-        elif total_of_nodes > running:
-            return ('running', 'growing %d' % (total_of_nodes - running))
+            return ('terminating', 'Failure: status of virtual cluster %s went away.' % request.name)
+        elif total_of_nodes > (running + idle):
+            return ('running', 'Requesting %d more compute worker(s).' % (total_of_nodes - running))
         elif total_of_nodes < running:
-            return ('running', 'shrinking %d' % (running - total_of_nodes))
+            return ('running', 'Requesting %d less compute worker(s).' % (running - total_of_nodes))
         else:
-            return ('running', 'all requested jobs are running.')
+            return ('running', 'All requested compute workers are running.')
 
     def state_terminating(self, request):
         self.log.debug('request %s is terminating' % request.name)
@@ -206,11 +244,13 @@ class HandleRequests(VC3Task):
 
         if (running is None) or (idle is None):
             self.log.warning('Failure: status of request %s went away.' % request.name)
-            return ('cleanup', 'Failure: status of request %s went away.' % request.name)
+            return ('cleanup', 'Failure: status of virtual cluster %s went away.' % request.name)
         elif (running + idle) == 0:
-            return ('cleanup', 'Factory finished draining the request.')
+            return ('cleanup', 'All compute workers have been terminated.')
+        elif request.action == 'terminate':
+            return ('terminating', 'terminate action is being processed.')
         else:
-            return ('terminating', None)
+            return ('terminating', 'Terminating all compute workers.')
 
 
     def state_cleanup(self, request):
@@ -218,9 +258,19 @@ class HandleRequests(VC3Task):
 
         # to fill cleanup here!
         if self.is_everything_cleaned_up(request):
-            return ('terminated', 'Garbage collected')
+            return ('terminated', 'Virtual cluster terminated succesfully')
 
         return ('cleanup', 'Waiting for headnode/others to terminate')
+
+
+    def state_terminated(self, request):
+
+        if request.action and request.action == 'relaunch':
+            request.action = 'new'
+            return ('new', 'relaunching cluster')
+        else:
+            self.log.debug('request %s is done' % request.name)
+            return ('terminated', 'Virtual cluster terminated succesfully')
 
 
     def add_queues_conf(self, request, nodesets):
@@ -243,7 +293,7 @@ class HandleRequests(VC3Task):
         except Exception, e:
             self.log.error('Failure to generate queuesconf: %s', e)
             self.log.debug(traceback.format_exc(None))
-            request.queuesconf = ''
+            request.queuesconf = None
             raise e
 
     def add_auth_conf(self, request):
@@ -260,7 +310,7 @@ class HandleRequests(VC3Task):
             return request.authconf
         except Exception, e:
             self.log.error('Failure generating auth.conf: %s', e)
-            request.authconf = ''
+            request.authconf = None
             return None
 
     def generate_queues_section(self, config, request, nodesets, allocation_name):
@@ -409,10 +459,10 @@ class HandleRequests(VC3Task):
 
             s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
-            s += ' -- vc3-glidein -c %s -C %s -p %s' % (collector, collector, '%(condor_password_filename)s')
+            s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV -c %s -C %s -p %s' % (collector, collector, '%(condor_password_filename)s')
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
-            s += ' -- work_queue_worker -M %s -t 1800' % (request.name,)
+            s += ' -- work_queue_worker -M %s -dall -t %d' % (request.name, 60*60*2)    # -t %d is two hours, in seconds
         elif nodeset.app_type == 'spark':
             sparkmaster = 'spark://' + request.headnode['ip'] + ':7077'
             s += ' --require spark'
@@ -428,6 +478,7 @@ class HandleRequests(VC3Task):
         s  = ' '
         s += ' --home=.'
         s += ' --install=.'
+        s += ' --bosco-workaround'
 
         envs = []
 
@@ -446,6 +497,10 @@ class HandleRequests(VC3Task):
             for k in environment.envmap:
                 vs.append("%s=%s" % (k, environment.envmap[k]))
 
+            if environment.required_os is not None:
+                os = '--require-os %s' %environment.required_os
+                s += ' ' + os
+            
             reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
             vars  = ' '.join(['--var %s' % x for x in vs])
 
@@ -488,6 +543,12 @@ class HandleRequests(VC3Task):
         if not request.statusraw:
             return None
 
+        if not request.statusinfo:
+            return None
+
+        if not self.is_configuring_state(request.state):
+            return None
+
         at_least_one_nodeset = False
         count = 0
 
@@ -496,8 +557,10 @@ class HandleRequests(VC3Task):
             at_least_one_nodeset = True
 
         if at_least_one_nodeset:
+            self.log.debug('Counting %d jobs in state %s for request %s', count, state, request.name)
             return count
 
+        self.log.debug('No nodesets with jobs in state %s for request %s', state, request.name)
         return None
 
 
@@ -523,25 +586,33 @@ class HandleRequests(VC3Task):
         if not statusraw:
             return None
 
+        if self.is_initializing_state(next_state):
+            return None
+
         statusinfo = {}
         for nodeset in nodesets:
-            statusinfo[nodeset.name]               = {}
-            statusinfo[nodeset.name]['running']    = 0
-            statusinfo[nodeset.name]['idle']       = 0
-            statusinfo[nodeset.name]['prescribed'] = nodeset.node_number
+            statusinfo[nodeset.name]                 = {}
+            statusinfo[nodeset.name]['running']      = 0
+            statusinfo[nodeset.name]['idle']         = 0
+            statusinfo[nodeset.name]['error']       = 0
+            statusinfo[nodeset.name]['node_number'] = nodeset.node_number
 
             if self.is_finishing_state(next_state):
                 statusinfo[nodeset.name]['requested'] = 0
             else:
-                statusinfo[nodeset.name]['requested'] = statusinfo[nodeset.name]['prescribed']
+                statusinfo[nodeset.name]['requested'] = statusinfo[nodeset.name]['node_number']
 
             try:
                 for factory in statusraw.keys():
                     for allocation in statusraw[factory][nodeset.name].keys():
-                        statusinfo[nodeset.name]['running'] += statusraw[factory][nodeset.name][allocation]['running']
-                        statusinfo[nodeset.name]['idle']    += statusraw[factory][nodeset.name][allocation]['idle']
+                        try:
+                            for field in ['running', 'idle', 'error']:
+                                statusinfo[nodeset.name][field] += statusraw[factory][nodeset.name][allocation][field]
+                        except KeyError, e:
+                            pass
             except KeyError, e:
                 pass
+
         return statusinfo
 
     def getHeadNode(self, request):
