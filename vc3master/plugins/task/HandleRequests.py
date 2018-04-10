@@ -651,7 +651,11 @@ class HandleRequests(VC3Task):
             return False
         limit = datetime.strptime(request.expiration, '%Y-%m-%dT%H:%M:%S')
 
-        return limit < datetime.utcnow().replace(microsecond=0)
+        if limit < datetime.utcnow().replace(microsecond=0):
+            self.log.debug("Request %s has expired.", request.name)
+            return True
+
+        return False
 
 class VC3InvalidRequest(Exception):
     def __init__(self, reason, request = None):
