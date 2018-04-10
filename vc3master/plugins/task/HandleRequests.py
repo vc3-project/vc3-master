@@ -7,6 +7,7 @@ from base64 import b64encode
 import os
 import json
 import math
+from datetime import datetime
 
 from vc3master.task import VC3Task
 from vc3infoservice.infoclient import InfoConnectionFailure,InfoEntityMissingException
@@ -67,7 +68,9 @@ class HandleRequests(VC3Task):
         headnode = self.getHeadNode(request)
 
         if not self.is_finishing_state(next_state):
-            if headnode and headnode.state == 'failure':
+            if self.request_has_expired(request):
+                (next_state, reason) = ('terminating', 'virtual cluster has expired')
+            elif headnode and headnode.state == 'failure':
                 (next_state, reason) = ('failure', 'There was a failure with headnode: %s \nPlease terminate the virtual cluster.' % headnode.state_reason)
 
         if request.action and request.action == 'terminate':
@@ -642,6 +645,13 @@ class HandleRequests(VC3Task):
             self.log.debug("Retrieved %s for name %s" % ( nodeset, nodeset_name))
             nodesets.append(nodeset)
         return nodesets
+
+    def request_has_expired(request):
+        if request.expiration is None:
+            return False
+        limit = datetime.strptime(request.expiration, '%Y-%m-%d,%H:%m:%S')
+
+        return limit < datetime.now()
 
 class VC3InvalidRequest(Exception):
     def __init__(self, reason, request = None):
