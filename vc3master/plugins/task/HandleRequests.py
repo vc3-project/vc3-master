@@ -646,7 +646,7 @@ class HandleRequests(VC3Task):
             nodesets.append(nodeset)
         return nodesets
 
-    def request_has_expired(request):
+    def request_has_expired(self, request):
         if request.expiration is None:
             return False
         limit = datetime.strptime(request.expiration, '%Y-%m-%dT%H:%m:%S')
