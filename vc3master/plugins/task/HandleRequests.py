@@ -649,7 +649,7 @@ class HandleRequests(VC3Task):
     def request_has_expired(self, request):
         if request.expiration is None:
             return False
-        limit = datetime.strptime(request.expiration, '%Y-%m-%dT%H:%m:%S')
+        limit = datetime.strptime(request.expiration, '%Y-%m-%dT%H:%M:%S')
 
         return limit < datetime.utcnow().replace(microsecond=0)
 
