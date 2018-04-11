@@ -460,7 +460,6 @@ class HandleRequests(VC3Task):
             except Exception, e:
                 self.log.warning("Could not find collector for request '%s'.")
 
-            s += ' --sys python:2.7=/usr'
             s += ' --require vc3-glidein'
             s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV -c %s -C %s -p %s' % (collector, collector, '%(condor_password_filename)s')
         elif nodeset.app_type == 'workqueue':
