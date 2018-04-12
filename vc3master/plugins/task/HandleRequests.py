@@ -324,11 +324,15 @@ class HandleRequests(VC3Task):
         resource = self.client.getResource(allocation.resource)
         if not resource:
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
+
+        resource_nodesize = self.client.getNodeset(resource.node)
+        if not resource_nodesize:
+            raise VC3InvalidRequest("Resource node size '%s' has not been declared." % resource.node, request = request)
         
         for nodeset in nodesets:
-            self.add_nodeset_to_queuesconf(config, request, resource, allocation, nodeset)
+            self.add_nodeset_to_queuesconf(config, request, resource, resource_nodesize, allocation, nodeset)
 
-    def add_nodeset_to_queuesconf(self, config, request, resource, allocation, nodeset):
+    def add_nodeset_to_queuesconf(self, config, request, resource, resource_nodesize, allocation, nodeset):
         node_number  = self.jobs_to_run_by_policy(request, allocation, nodeset)
         section_name = request.name + '.' + nodeset.name + '.' + allocation.name
 
@@ -364,7 +368,7 @@ class HandleRequests(VC3Task):
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
 
-        self.add_environment_to_queuesconf(config, request, section_name, nodeset)
+        self.add_environment_to_queuesconf(config, request, section_name, nodeset, resource_nodesize)
 
         self.log.debug("Completed filling in config for allocation %s" % allocation.name)
 
@@ -448,7 +452,7 @@ class HandleRequests(VC3Task):
             raise VC3InvalidRequest("Unknown resource access method '%s'" % str(resource.accessmethod), request = request)
 
 
-    def add_pilot_to_queuesconf(self, config, request, section_name, nodeset):
+    def add_pilot_to_queuesconf(self, config, request, section_name, nodeset, nodesize):
 
         s = ''
         if nodeset.app_type == 'htcondor':
@@ -461,10 +465,10 @@ class HandleRequests(VC3Task):
                 self.log.warning("Could not find collector for request '%s'.")
 
             s += ' --require vc3-glidein'
-            s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV -c %s -C %s -p %s' % (collector, collector, '%(condor_password_filename)s')
+            s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV --partitionable -c %s -C %s -p %s' % (collector, collector, '%(condor_password_filename)s')
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
-            s += ' -- work_queue_worker -M %s -dall -t %d' % (request.name, 60*60*2)    # -t %d is two hours, in seconds
+            s += ' -- work_queue_worker -M %s -dall -t %d --cores %d --memory %d --disk %d' % (request.name, 60*60*2, nodesize.cores, nodesize.memory_mb, nodesize.storage_mb)
         elif nodeset.app_type == 'spark':
             sparkmaster = 'spark://' + request.headnode['ip'] + ':7077'
             s += ' --require spark'
@@ -475,7 +479,7 @@ class HandleRequests(VC3Task):
         return s
 
 
-    def add_environment_to_queuesconf(self, config, request, section_name, nodeset):
+    def add_environment_to_queuesconf(self, config, request, section_name, nodeset, resource_nodesize):
         #s  = " --revar 'VC3_.*'"
         s  = ' '
         s += ' --home=.'
@@ -517,7 +521,7 @@ class HandleRequests(VC3Task):
         if len(envs) > 0:
             config.set(section_name, 'vc3.environments', ','.join(envs))
 
-        s += ' ' + self.add_pilot_to_queuesconf(config, request, section_name, nodeset)
+        s += ' ' + self.add_pilot_to_queuesconf(config, request, section_name, nodeset, resource_nodesize)
 
         config.set(section_name, 'executable.arguments', s)
 
