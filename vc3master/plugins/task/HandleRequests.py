@@ -465,7 +465,14 @@ class HandleRequests(VC3Task):
                 self.log.warning("Could not find collector for request '%s'.")
 
             s += ' --require vc3-glidein'
-            s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV --partitionable -c %s -C %s -p %s' % (collector, collector, '%(condor_password_filename)s')
+            s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV -c %s -C %s -p %s' % (collector, collector, '%(condor_password_filename)s')
+
+            # for now, assume anything not condor is partitionable. Later
+            # condor can be used with partitions once we figure out the right
+            # incantations.
+            if nodesize.app_type != 'htcondor':
+                s += ' --partitionable'
+
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
             s += ' -- work_queue_worker -M %s -dall -t %d --cores %d --memory %d --disk %d' % (request.name, 60*60*2, nodesize.cores, nodesize.memory_mb, nodesize.storage_mb)
