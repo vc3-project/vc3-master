@@ -368,7 +368,7 @@ class HandleRequests(VC3Task):
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
 
-        self.add_environment_to_queuesconf(config, request, section_name, nodeset, resource_nodesize)
+        self.add_environment_to_queuesconf(config, request, section_name, nodeset, resource, resource_nodesize)
 
         self.log.debug("Completed filling in config for allocation %s" % allocation.name)
 
@@ -452,7 +452,7 @@ class HandleRequests(VC3Task):
             raise VC3InvalidRequest("Unknown resource access method '%s'" % str(resource.accessmethod), request = request)
 
 
-    def add_pilot_to_queuesconf(self, config, request, section_name, nodeset, nodesize):
+    def add_pilot_to_queuesconf(self, config, request, section_name, nodeset, resource, nodesize):
 
         s = ''
         if nodeset.app_type == 'htcondor':
@@ -470,7 +470,7 @@ class HandleRequests(VC3Task):
             # for now, assume anything not condor is partitionable. Later
             # condor can be used with partitions once we figure out the right
             # incantations.
-            if nodesize.app_type != 'htcondor':
+            if resource.accessflavor != 'htcondor':
                 s += ' --partitionable'
 
         elif nodeset.app_type == 'workqueue':
@@ -486,7 +486,7 @@ class HandleRequests(VC3Task):
         return s
 
 
-    def add_environment_to_queuesconf(self, config, request, section_name, nodeset, resource_nodesize):
+    def add_environment_to_queuesconf(self, config, request, section_name, nodeset, resource, resource_nodesize):
         #s  = " --revar 'VC3_.*'"
         s  = ' '
         s += ' --home=.'
@@ -528,7 +528,7 @@ class HandleRequests(VC3Task):
         if len(envs) > 0:
             config.set(section_name, 'vc3.environments', ','.join(envs))
 
-        s += ' ' + self.add_pilot_to_queuesconf(config, request, section_name, nodeset, resource_nodesize)
+        s += ' ' + self.add_pilot_to_queuesconf(config, request, section_name, nodeset, resource, resource_nodesize)
 
         config.set(section_name, 'executable.arguments', s)
 
