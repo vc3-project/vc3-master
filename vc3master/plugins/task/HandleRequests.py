@@ -325,9 +325,9 @@ class HandleRequests(VC3Task):
         if not resource:
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
 
-        resource_nodesize = self.client.getNodeset(resource.node)
+        resource_nodesize = self.client.getNodeinfo(resource.nodeinfo)
         if not resource_nodesize:
-            raise VC3InvalidRequest("Resource node size '%s' has not been declared." % resource.node, request = request)
+            raise VC3InvalidRequest("Resource node size '%s' has not been declared." % resource.nodeinfo, request = request)
         
         for nodeset in nodesets:
             self.add_nodeset_to_queuesconf(config, request, resource, resource_nodesize, allocation, nodeset)
