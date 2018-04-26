@@ -341,9 +341,9 @@ class HandleRequests(VC3Task):
         config.add_section(section_name)
         config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
 
-        cores  = (resource_nodesize and resource_nodesize.cores)     or 1
-        disk   = (resource_nodesize and resource_nodesize.disk_mb)   or 1024
-        memory = (resource_nodesize and resource_nodesize.memory_mb) or 1024
+        cores  = (resource_nodesize and resource_nodesize.cores)      or 1
+        disk   = (resource_nodesize and resource_nodesize.storage_mb) or 1024
+        memory = (resource_nodesize and resource_nodesize.memory_mb)  or 1024
 
         if resource.accesstype == 'batch':
             config.set(section_name, 'batchsubmitplugin',           'CondorSSHRemoteManager')
