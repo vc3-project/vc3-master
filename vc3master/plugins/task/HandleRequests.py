@@ -341,6 +341,10 @@ class HandleRequests(VC3Task):
         config.add_section(section_name)
         config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
 
+        cores  = (resource_nodesize and resource_nodesize.cores)  or 1
+        disk   = (resource_nodesize and resource_nodesize.disk)   or 1024
+        memory = (resource_nodesize and resource_nodesize.memory) or 1024
+
         if resource.accesstype == 'batch':
             config.set(section_name, 'batchsubmitplugin',           'CondorSSHRemoteManager')
             config.set(section_name, 'batchsubmit.condorsshremotemanager.user',  allocation.accountname)
@@ -348,6 +352,11 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorsshremotemanager.host',  resource.accesshost)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.port',  str(resource.accessport))
             config.set(section_name, 'batchsubmit.condorsshremotemanager.authprofile', allocation.name)
+
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_cpus',   cores)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_disk',   disk   * 1024)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_memory', memory * 1024)
+
             config.set(section_name, 'executable',                  '%(builder)s')
 
             if nodeset.app_type == 'htcondor' and nodeset.app_role == 'worker-nodes':
@@ -364,6 +373,11 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmitplugin',          'CondorLocal')
             config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.should_transfer_files', 'YES')
             config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.initialdir', '$ENV(TMP)')
+
+            config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.request_cpus',   cores)
+            config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.request_disk',   disk   * 1024)
+            config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.request_memory', memory * 1024)
+
             config.set(section_name, 'executable',                 '%(builder)s')
         else:
             raise VC3InvalidRequest("Unknown resource access type '%s'" % str(resource.accesstype), request = request)
