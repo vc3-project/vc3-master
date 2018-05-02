@@ -355,7 +355,7 @@ class HandleRequests(VC3Task):
 
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_cpus',   cores)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_disk',   disk   * 1024)
-            config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_memory', memory * 1024)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_memory', memory)
 
             config.set(section_name, 'executable',                  '%(builder)s')
 
