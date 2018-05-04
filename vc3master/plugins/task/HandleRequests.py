@@ -377,6 +377,8 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.request_cpus',   cores)
             config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.request_disk',   disk   * 1024)
             config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.request_memory', memory * 1024)
+            # Workaround to (apparently) a bosco bug dealing with multicore
+            config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.+request_nodenumber',   cores)
 
             config.set(section_name, 'executable',                 '%(builder)s')
         else:
