@@ -26,7 +26,8 @@ def choose_data_file_locations():
 
 # commenting, as it creates dependency on vc3 prefix:
 current_time = time.gmtime()
-release_version = "{0}.{1:0>2}.{2:0>2}".format(current_time.tm_year, current_time.tm_mon, current_time.tm_mday)
+#release_version = "{0}.{1:0>2}.{2:0>2}".format(current_time.tm_year, current_time.tm_mon, current_time.tm_mday)
+release_version = '1.0.0'
 
 
 systemd_files = ['etc/vc3-master.service']
@@ -59,8 +60,7 @@ data_files = choose_data_file_locations()
 # setup for distutils
 setup(
     name="vc3-master",
-    #version=release_version,
-    version="1.0.0"
+    version=release_version,
     description='vc3-master package',
     long_description='''This package contains vc3 master''',
     license='GPL',
