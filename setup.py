@@ -59,7 +59,8 @@ data_files = choose_data_file_locations()
 # setup for distutils
 setup(
     name="vc3-master",
-    version=release_version,
+    #version=release_version,
+    version="1.0.0"
     description='vc3-master package',
     long_description='''This package contains vc3 master''',
     license='GPL',
