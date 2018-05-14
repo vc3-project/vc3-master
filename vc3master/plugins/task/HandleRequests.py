@@ -235,10 +235,12 @@ class HandleRequests(VC3Task):
             return ('terminating', 'Failure: status of virtual cluster %s went away.' % request.name)
         elif total_of_nodes > (running + idle):
             return ('running', 'Requesting %d more compute worker(s).' % (total_of_nodes - running))
-        elif total_of_nodes < running:
+        elif total_of_nodes < (running + idle):
             return ('running', 'Requesting %d less compute worker(s).' % (running - total_of_nodes))
-        else:
+        elif total_of_nodes == running:
             return ('running', 'All requested compute workers are running.')
+        else:
+            return ('running', 'Waiting for %d queued compute workers.' % (idle,))
 
     def state_terminating(self, request):
         self.log.debug('request %s is terminating' % request.name)
