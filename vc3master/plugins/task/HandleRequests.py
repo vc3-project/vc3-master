@@ -80,6 +80,9 @@ class HandleRequests(VC3Task):
         nodesets           = self.getNodesets(request)
         request.statusinfo = self.compute_job_status_summary(request.statusraw, nodesets, next_state)
 
+        if next_state == 'terminated':
+            (next_state, reason) = self.state_terminated(request)
+
         if  next_state == 'new': 
             # nexts: initializing, terminating
             (next_state, reason) = self.state_new(request)
@@ -103,9 +106,6 @@ class HandleRequests(VC3Task):
         if next_state == 'cleanup':
             # waits until everything has been cleanup
             (next_state, reason) = self.state_cleanup(request)
-
-        if next_state == 'terminated':
-            (next_state, reason) = self.state_terminated(request)
 
         if next_state is not request.state or reason is not request.state_reason:
             self.log.debug("request '%s'  state '%s' -> %s (%s)'", request.name, request.state, next_state, str(reason))
@@ -269,7 +269,6 @@ class HandleRequests(VC3Task):
 
 
     def state_terminated(self, request):
-
         if request.action and request.action == 'relaunch':
             request.action = 'new'
             return ('new', 'relaunching cluster')
