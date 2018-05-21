@@ -485,7 +485,8 @@ class HandleRequests(VC3Task):
                 self.log.warning("Could not find collector for request '%s'.")
 
             s += ' --require vc3-glidein'
-            s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV -c %s -C %s -p %s -t -D %d' % (collector, collector, '%(condor_password_filename)s', nodesize.cores)
+            s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV'
+            s += ' -c %s -C %s -p %s -t -D %d -m %d --disk %d' % (collector, collector, '%(condor_password_filename)s', nodesize.cores, nodesize.memory_mb, nodesize.storage_mb * 1024)
 
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
