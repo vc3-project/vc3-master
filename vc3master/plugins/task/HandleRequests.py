@@ -344,7 +344,7 @@ class HandleRequests(VC3Task):
 
         cores  = (resource_nodesize and resource_nodesize.cores)      or 1
         disk   = (resource_nodesize and resource_nodesize.storage_mb) or 1024
-        memory = (resource_nodesize and resource_nodesize.memory_mb)  or 1024
+        memory_per_core = (resource_nodesize and resource_nodesize.memory_mb)  or 1024
 
         if resource.accesstype == 'batch':
             config.set(section_name, 'batchsubmitplugin',           'CondorSSHRemoteManager')
@@ -357,7 +357,7 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+Nonessential', 'True')
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_cpus',   cores)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_disk',   disk   * 1024)
-            config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_memory', memory)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_memory', memory_per_core * cores)
             # Workaround to (apparently) a bosco bug dealing with multicore
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+remote_nodenumber',   cores)
 
@@ -380,7 +380,7 @@ class HandleRequests(VC3Task):
 
             config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.request_cpus',   cores)
             config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.request_disk',   disk   * 1024)
-            config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.request_memory', memory)
+            config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.request_memory', memory_per_core * cores)
             # Workaround to (apparently) a bosco bug dealing with multicore
             config.set(section_name, 'batchsubmit.condorlocal.condor_attributes.+remote_nodenumber',   cores)
 
