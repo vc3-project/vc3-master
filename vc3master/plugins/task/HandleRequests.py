@@ -635,7 +635,7 @@ class HandleRequests(VC3Task):
                     for allocation in statusraw[factory][nodeset.name].keys():
                         try:
                             for field in ['running', 'idle', 'error']:
-                                statusinfo[nodeset.name][field] += statusraw[factory][nodeset.name][allocation][field]
+                                statusinfo[nodeset.name][field] += statusraw[factory][nodeset.name][allocation]['aggregated'][field]
                         except KeyError, e:
                             pass
             except KeyError, e:
