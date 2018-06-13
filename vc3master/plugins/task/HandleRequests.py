@@ -475,7 +475,7 @@ class HandleRequests(VC3Task):
     def add_pilot_to_queuesconf(self, config, request, section_name, nodeset, resource, nodesize):
 
         s = ''
-        if nodeset.app_type == 'htcondor':
+        if nodeset.app_type == 'htcondor' or nodeset.app_type == 'jupyter':
 
             collector = 'missing'
             try:
