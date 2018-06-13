@@ -239,6 +239,7 @@ class HandleHeadNodes(VC3Task):
             return False
 
         try:
+            self.log.debug("Connecting to headnode %s with key %s as user %s", headnode.app_host, self.node_private_key_file, self.node_user )
             subprocess.check_call([
                 'ssh',
                 '-o',
@@ -246,6 +247,7 @@ class HandleHeadNodes(VC3Task):
                 '-o',
                 'StrictHostKeyChecking=no',
                 '-o',
+
                 'ConnectTimeout=10',
                 '-i',
                 self.node_private_key_file,
@@ -318,7 +320,13 @@ class HandleHeadNodes(VC3Task):
         extra_vars['production_keys']      = self.get_members_keys(request)
         extra_vars['builder_options']      = self.get_builder_options(request)
 
-        # passing extra-vars as a command line argument for now. That won't
+	app_type = headnode.app_type
+	if app_type is not None:
+	    self.ansible_playbook = self.ansible_path + "login-" + app_type + ".yaml"
+       	
+	self.log.debug("playbook path : %s", self.ansible_playbook)
+	
+	# passing extra-vars as a command line argument for now. That won't
         # scale well, we want to write those vars to a file instead.
         pipe = subprocess.Popen(
                 ['ansible-playbook',
@@ -426,7 +434,7 @@ class HandleHeadNodes(VC3Task):
                 name = request.headnode,
                 owner = request.owner,
                 node_number = 1,
-                app_type = 'htcondor',     # should depend on the given nodeset!
+                app_type = self.getAppType(request),
                 app_role = 'head-node', 
                 environment = None,
                 description = 'Headnode nodeset automatically created: ' + request.headnode,
@@ -445,6 +453,13 @@ class HandleHeadNodes(VC3Task):
             except Exception, e:
                 self.log.debug("Could not delete headnode nodeset '%s'." % (request.headnode,))
                 self.log.debug(traceback.format_exc(None))
+
+    def getAppType(self, request):
+	cluster = self.client.getCluster(request.cluster)
+	nodeset = self.client.getNodeset(cluster.nodesets[0])
+	app_type = nodeset.app_type
+	
+	return app_type
 
     def __get_ip(self, request):
         try:
