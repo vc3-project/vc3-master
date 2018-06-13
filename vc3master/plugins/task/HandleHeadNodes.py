@@ -322,11 +322,10 @@ class HandleHeadNodes(VC3Task):
 
 	app_type = headnode.app_type
 	if app_type is not None:
-	    path = "/etc/vc3/vc3-playbooks/login/"
-	    self.ansible_playbook = path + "login-" + app_type + ".yaml"
+	    self.ansible_playbook = self.ansible_path + "login-" + app_type + ".yaml"
        	
-	self.log.debug("playbook path : %s", self.ansible_playbook)													
-			 
+	self.log.debug("playbook path : %s", self.ansible_playbook)
+	
 	# passing extra-vars as a command line argument for now. That won't
         # scale well, we want to write those vars to a file instead.
         pipe = subprocess.Popen(
@@ -435,7 +434,7 @@ class HandleHeadNodes(VC3Task):
                 name = request.headnode,
                 owner = request.owner,
                 node_number = 1,
-                app_type = self.getAppType(request),     # should depend on the given nodeset!
+                app_type = self.getAppType(request),
                 app_role = 'head-node', 
                 environment = None,
                 description = 'Headnode nodeset automatically created: ' + request.headnode,
