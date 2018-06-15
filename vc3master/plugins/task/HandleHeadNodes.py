@@ -322,7 +322,7 @@ class HandleHeadNodes(VC3Task):
 
 	app_type = headnode.app_type
 	if app_type is not None:
-        playbook_name = "login-" + app_type + ".yaml"
+            playbook_name = "login-" + app_type + ".yaml"
 	    self.ansible_playbook = os.path.join(self.ansible_path, playbook_name)
         
 	self.log.debug("playbook path : %s", self.ansible_playbook)
