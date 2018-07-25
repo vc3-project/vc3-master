@@ -3,6 +3,7 @@
 import ConfigParser
 import StringIO
 from base64 import b64encode
+import socket
 
 import os
 import json
@@ -508,6 +509,14 @@ class HandleRequests(VC3Task):
         s += ' --install=.'
         s += ' --bosco-workaround'
 
+        try:
+          hostname = socket.getfqdn()
+        except:
+          self.log.warning("Could not get fully qualified domain name, setting to localhost instead")
+          hostname = 'localhost.localdomain'
+        
+        # VC3_GLIDEIN_GID=apf-prod.virtualclusters.org#$(Cluster).$(Process)
+        s += ' --var VC3_GLIDEIN_ID=%s#$(Cluster).$(Process)' % hostname
         envs = []
 
         if request.environments is not None:
