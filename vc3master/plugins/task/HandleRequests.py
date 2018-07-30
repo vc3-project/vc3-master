@@ -509,8 +509,9 @@ class HandleRequests(VC3Task):
         s += ' --install=.'
         s += ' --bosco-workaround'
 
-        #e.g. VC3_GLIDEIN_GID=apf-prod.virtualclusters.org#53406.6
-        s += ' --var VC3_GLIDEIN_ID=$ENV(HOSTNAME)#$(Cluster).$(Process)'
+        #e.g. VC3_GLIDEIN_ID=my-request-name#53406.6
+        glidein_id = request.name + '#$(Cluster).$(Process)'
+        s += ' --var VC3_GLIDEIN_ID=' + glidein_id
         envs = []
 
         if request.environments is not None:
@@ -549,6 +550,7 @@ class HandleRequests(VC3Task):
         s += ' ' + self.add_pilot_to_queuesconf(config, request, section_name, nodeset, resource, resource_nodesize)
 
         config.set(section_name, 'executable.arguments', s)
+        config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+vc3_glidein_id', glidein_id)
 
     def is_everything_cleaned_up(self, request):
         headnode = None
