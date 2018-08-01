@@ -511,7 +511,7 @@ class HandleRequests(VC3Task):
 
         #e.g. FACTORY_JOBID=apf.virtualclusters.org#53406.6
         factory_jobid = "$ENV(HOSTNAME)" + '#$(Cluster).$(Process)'
-        if nodeset.app_type == 'htcondor' or nodeset.app_type='jupyter':
+        if nodeset.app_type == 'htcondor' or nodeset.app_type == 'jupyter':
             s += ' --var _CONDOR_FACTORY_JOBID=' + factory_jobid # in the Condor/Jupyterhub case we also make sure its a Condor classad
             s += ' --var _CONDOR_STARTD_ATTRS="$(STARTD_ATTRS) FACTORY_JOBID"'
             s += ' --var FACTORY_JOBID=' + factory_jobid
