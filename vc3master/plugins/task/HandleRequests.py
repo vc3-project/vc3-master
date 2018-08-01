@@ -504,14 +504,20 @@ class HandleRequests(VC3Task):
 
     def add_environment_to_queuesconf(self, config, request, section_name, nodeset, resource, resource_nodesize):
         #s  = " --revar 'VC3_.*'"
-        s  = ' '
+        s  = '" ' # trying to quote the thing
         s += ' --home=.'
         s += ' --install=.'
         s += ' --bosco-workaround'
 
-        #e.g. VC3_GLIDEIN_ID=my-request-name#53406.6
-        glidein_id = request.name + '#$(Cluster).$(Process)'
-        s += ' --var VC3_GLIDEIN_ID=' + glidein_id
+        #e.g. FACTORY_JOBID=apf.virtualclusters.org#53406.6
+        factory_jobid = "$ENV(HOSTNAME)" + '#$(Cluster).$(Process)'
+        if nodeset.app_type == 'htcondor' or nodeset.app_type='jupyter':
+            s += ' --var _CONDOR_FACTORY_JOBID=' + factory_jobid # in the Condor/Jupyterhub case we also make sure its a Condor classad
+            s += ' --var _CONDOR_STARTD_ATTRS="$(STARTD_ATTRS) FACTORY_JOBID"'
+            s += ' --var FACTORY_JOBID=' + factory_jobid
+        else
+            # otherwise we just put the factory jobid into the environment. other middlewares might be able to use it too
+            s += ' --var FACTORY_JOBID=' + factory_jobid
         envs = []
 
         if request.environments is not None:
@@ -548,6 +554,9 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'vc3.environments', ','.join(envs))
 
         s += ' ' + self.add_pilot_to_queuesconf(config, request, section_name, nodeset, resource, resource_nodesize)
+
+        # add another quote at the end
+        s += '"'
 
         config.set(section_name, 'executable.arguments', s)
         config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+vc3_glidein_id', glidein_id)
