@@ -559,7 +559,6 @@ class HandleRequests(VC3Task):
         s += '"'
 
         config.set(section_name, 'executable.arguments', s)
-        config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+vc3_glidein_id', glidein_id)
 
     def is_everything_cleaned_up(self, request):
         headnode = None
