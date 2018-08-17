@@ -493,9 +493,19 @@ class HandleRequests(VC3Task):
             s += ' --require cctools-statics'
             s += ' -- work_queue_worker -M %s -dall -t %d --cores %d --memory %d --disk %d' % (request.name, 60*60*2, nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb)
         elif nodeset.app_type == 'spark':
-            sparkmaster = 'spark://' + request.headnode['ip'] + ':7077'
-            s += ' --require spark'
-            s += ' -- \'$VC3_ROOT_SPARK/bin/spark-class org.apache.spark.deploy.worker.Worker %s\'' % sparkmaster 
+            master_ip = 'missing'
+            sparkmaster = 'unknown'
+            try:
+                headnode = self.client.getNodeset(request.headnode)
+                master_ip = headnode.app_host
+            except Exception, e:
+                self.log.warning("Could not find master ip for request '%s'.")
+            sparkmaster = 'spark://' + master_ip + ':7077'
+            s += ' --no-sys=python --require spark-xrootd '
+            s += '-- $VC3_ROOT_SPARK/bin/spark-class org.apache.spark.deploy.worker.Worker -c %d -m %dMB  %s ' % (nodesize.cores, nodesize.memory_mb * nodesize.cores, sparkmaster)
+        else:
+            raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
+   
         else:
             raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
 
