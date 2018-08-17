@@ -501,7 +501,7 @@ class HandleRequests(VC3Task):
             except Exception, e:
                 self.log.warning("Could not find master ip for request '%s'.")
             sparkmaster = 'spark://' + master_ip + ':7077'
-            s += ' --require spark-xrootd '
+            s += ' --no-sys=python --require spark-xrootd '
             s += '-- $VC3_ROOT_SPARK/bin/spark-class org.apache.spark.deploy.worker.Worker -c %d -m %dMB  %s ' % (nodesize.cores, nodesize.memory_mb * nodesize.cores, sparkmaster)
         else:
             raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
