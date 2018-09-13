@@ -498,9 +498,14 @@ class HandleRequests(VC3Task):
             s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV'
             s += ' -c %s -C %s -p %s -t -D %d -m %d --disk %d' % (collector, collector, '%(condor_password_filename)s', nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb * 1024)
 
+            if nodeset.app_lingertime:
+                s += ' --lingertime %d' % (nodeset.app_lingertime, )
+
         elif nodeset.app_type == 'workqueue':
             s += ' --require cctools-statics'
             s += ' -- work_queue_worker -M %s -dall -t %d --cores %d --memory %d --disk %d' % (request.name, 60*60*2, nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb)
+            if nodeset.app_lingertime:
+                s += ' --timeout %d' % (nodeset.app_lingertime, )
         elif nodeset.app_type == 'spark':
             sparkmaster = 'spark://' + request.headnode['ip'] + ':7077'
             s += ' --require spark'
