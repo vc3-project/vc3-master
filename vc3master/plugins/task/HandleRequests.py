@@ -529,8 +529,7 @@ class HandleRequests(VC3Task):
             s += ' --var _CONDOR_FACTORY_JOBID=' + factory_jobid # in the Condor/Jupyterhub case we also make sure its a Condor classad
 
             # Leaving STARTD_ATTRS out for now, while fixing quoting.
-            #s += " --var _CONDOR_STARTD_ATTRS='""$(STARTD_ATTRS) FACTORY_JOBID""'"
-            s += ' --var _CONDOR_STARTD_ATTRS=FACTORY_JOBID'
+            #s += ' --var _CONDOR_STARTD_ATTRS=""$(STARTD_ATTRS) FACTORY_JOBID""'
 
             s += ' --var FACTORY_JOBID=' + factory_jobid
         else:
