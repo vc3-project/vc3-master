@@ -373,13 +373,13 @@ class HandleRequests(VC3Task):
             if nodeset.app_killorder is not None:
                     config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.killorder', nodeset.app_killorder)
 
-            if nodeset.app_type == 'htcondor' and nodeset.app_role == 'worker-nodes':
+            if nodeset.app_role == 'worker-nodes':
                 try:
                     headnode = self.client.getNodeset(request.headnode)
-                    config.set(section_name, 'condor_password_filename', request.name + '-condor.passwd')
-                    config.set(section_name, 'condor_password', headnode.app_sectoken)
+                    config.set(section_name, 'shared_secret_file', request.name + 'secret')
+                    config.set(section_name, 'shared_secret', headnode.app_sectoken)
                 except Exception, e:
-                    self.log.warning("Could not get headnode condor password for request '%s'. Continuing without password (this probably won't work).", request.name )
+                    self.log.warning("Could not get headnode shared secret for request '%s'. Continuing without password (this probably won't work).", request.name )
 
         elif resource.accesstype == 'cloud':
             config.set(section_name, 'batchsubmitplugin',          'CondorEC2')
@@ -496,7 +496,7 @@ class HandleRequests(VC3Task):
 
             s += ' --require vc3-glidein'
             s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV'
-            s += ' -c %s -C %s -p %s -t -D %d -m %d --disk %d' % (collector, collector, '%(condor_password_filename)s', nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb * 1024)
+            s += ' -c %s -C %s -p %s -t -D %d -m %d --disk %d' % (collector, collector, '%(shared_secret_file)s', nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb * 1024)
 
             if nodeset.app_lingertime:
                 s += ' --lingertime %d' % (nodeset.app_lingertime, )
@@ -509,7 +509,9 @@ class HandleRequests(VC3Task):
         elif nodeset.app_type == 'spark':
             sparkmaster = 'spark://' + request.headnode['ip'] + ':7077'
             s += ' --require spark'
-            s += ' -- \'$VC3_ROOT_SPARK/bin/spark-class org.apache.spark.deploy.worker.Worker %s\'' % sparkmaster 
+            s += ' --var SPARK_NO_DAEMONIZE=1'
+            s += ' --var SPARK_MASTER_HOST=${%s}' % sparkmaster
+            s += ' -- \'$VC3_ROOT_SPARK/sbin/start-slave.sh %s --properties-file %s\'' % (sparkmaster, '%(shared_secret_file)s')
         else:
             raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
 
