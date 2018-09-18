@@ -484,15 +484,15 @@ class HandleRequests(VC3Task):
 
     def add_pilot_to_queuesconf(self, config, request, section_name, nodeset, resource, nodesize):
 
+        try:
+            headnode  = self.client.getNodeset(request.headnode)
+        except Exception, e:
+            self.log.warning("Could not find headnode for request '%s'.")
+            raise e
+
         s = ''
         if nodeset.app_type == 'htcondor' or nodeset.app_type == 'jupyter':
-
-            collector = 'missing'
-            try:
-                headnode  = self.client.getNodeset(request.headnode)
-                collector = headnode.app_host
-            except Exception, e:
-                self.log.warning("Could not find collector for request '%s'.")
+            collector = headnode.app_host
 
             s += ' --require vc3-glidein'
             s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV'
@@ -507,7 +507,7 @@ class HandleRequests(VC3Task):
             if nodeset.app_lingertime:
                 s += ' --timeout %d' % (nodeset.app_lingertime, )
         elif nodeset.app_type == 'spark':
-            sparkmaster = 'spark://' + request.headnode['ip'] + ':7077'
+            sparkmaster = 'spark://' + headnode.app_host + ':7077'
             s += ' --require spark'
             s += ' --var SPARK_NO_DAEMONIZE=1'
             s += ' --var SPARK_MASTER_HOST=${%s}' % sparkmaster
