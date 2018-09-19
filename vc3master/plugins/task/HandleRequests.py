@@ -364,11 +364,13 @@ class HandleRequests(VC3Task):
 
             config.set(section_name, 'executable',                  '%(builder)s')
 
-            if nodeset.app_peaceful is not None:
-                if nodeset.app_peaceful:
-                    config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'yes')
-                else:
-                    config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'no')
+            # for now, remove all jobs non-peacefully:
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'no')
+            # if nodeset.app_peaceful is not None:
+            #     if nodeset.app_peaceful:
+            #         config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'yes')
+            #     else:
+            #         config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'no')
 
             if nodeset.app_killorder is not None:
                     config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.killorder', nodeset.app_killorder)
