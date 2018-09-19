@@ -504,7 +504,7 @@ class HandleRequests(VC3Task):
                 s += ' --lingertime %d' % (nodeset.app_lingertime, )
 
         elif nodeset.app_type == 'workqueue':
-            s += ' --require cctools-statics'
+            s += ' --require cctools'
             s += ' -- work_queue_worker -M %s -dall -t %d --cores %d --memory %d --disk %d --password %s' % (request.name, 60*60*2, nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb, '%(shared_secret_file)s')
             if nodeset.app_lingertime:
                 s += ' --timeout %d' % (nodeset.app_lingertime, )
