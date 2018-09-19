@@ -511,7 +511,7 @@ class HandleRequests(VC3Task):
             s += ' --require spark'
             s += ' --var SPARK_NO_DAEMONIZE=1'
             s += ' --var SPARK_MASTER_HOST=${%s}' % sparkmaster
-            s += ' -- \'$VC3_ROOT_SPARK/sbin/start-slave.sh %s --properties-file %s -c %d -d %dM\'' % (sparkmaster, '%(shared_secret_file)s', node, nodesize.cores, nodesize.memory_mb * nodesize.cores)
+            s += ' -- \'$VC3_ROOT_SPARK/sbin/start-slave.sh %s --properties-file %s -c %d -d %dM\'' % (sparkmaster, '%(shared_secret_file)s', nodesize.cores, nodesize.memory_mb * nodesize.cores)
         else:
             raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
 
