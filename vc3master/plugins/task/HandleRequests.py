@@ -508,7 +508,7 @@ class HandleRequests(VC3Task):
                 s += ' --timeout %d' % (nodeset.app_lingertime, )
         elif nodeset.app_type == 'spark':
             sparkmaster = 'spark://' + headnode.app_host + ':7077'
-            s += ' --require spark'
+            s += ' --require spark-xrootd'
             s += ' --var SPARK_NO_DAEMONIZE=1'
             s += ' --var SPARK_MASTER_HOST=${%s}' % sparkmaster
             s += ' -- \'$VC3_ROOT_SPARK/sbin/start-slave.sh %s --properties-file %s -c %d -d %dM\'' % (sparkmaster, '%(shared_secret_file)s', nodesize.cores, nodesize.memory_mb * nodesize.cores)
