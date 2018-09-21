@@ -363,14 +363,24 @@ class HandleRequests(VC3Task):
 
             config.set(section_name, 'executable',                  '%(builder)s')
 
-            if nodeset.app_type == 'htcondor' and nodeset.app_role == 'worker-nodes':
-                # add the Condor shared secret
+            # for now, remove all jobs non-peacefully:
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'no')
+            # if nodeset.app_peaceful is not None:
+            #     if nodeset.app_peaceful:
+            #         config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'yes')
+            #     else:
+            #         config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'no')
+
+            if nodeset.app_killorder is not None:
+                    config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.killorder', nodeset.app_killorder)
+
+            if nodeset.app_role == 'worker-nodes':
                 try:
                     headnode = self.client.getNodeset(request.headnode)
-                    config.set(section_name, 'condor_password_filename', request.name + '-condor.passwd')
-                    config.set(section_name, 'condor_password', headnode.app_sectoken)
+                    config.set(section_name, 'shared_secret_file', request.name + 'secret')
+                    config.set(section_name, 'shared_secret', headnode.app_sectoken)
                 except Exception, e:
-                    self.log.warning("Could not get headnode condor password for request '%s'. Continuing without password (this probably won't work).", request.name )
+                    self.log.warning("Could not get headnode shared secret for request '%s'. Continuing without password (this probably won't work).", request.name )
 
                 # configure APF to resize the VC based on the # of jobs in queue
                 scalefactor = 1 / float(len(request.allocations))
@@ -487,27 +497,34 @@ class HandleRequests(VC3Task):
 
     def add_pilot_to_queuesconf(self, config, request, section_name, nodeset, resource, nodesize):
 
+        try:
+            headnode  = self.client.getNodeset(request.headnode)
+        except Exception, e:
+            self.log.warning("Could not find headnode for request '%s'.")
+            raise e
+
         s = ''
         if nodeset.app_type == 'htcondor' or nodeset.app_type == 'jupyter':
-
-            collector = 'missing'
-            try:
-                headnode  = self.client.getNodeset(request.headnode)
-                collector = headnode.app_host
-            except Exception, e:
-                self.log.warning("Could not find collector for request '%s'.")
+            collector = headnode.app_host
 
             s += ' --require vc3-glidein'
             s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV'
-            s += ' -c %s -C %s -p %s -t -D %d -m %d --disk %d' % (collector, collector, '%(condor_password_filename)s', nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb * 1024)
+            s += ' -c %s -C %s -p %s -t -D %d -m %d --disk %d' % (collector, collector, '%(shared_secret_file)s', nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb * 1024)
+
+            if nodeset.app_lingertime:
+                s += ' --lingertime %d' % (nodeset.app_lingertime, )
 
         elif nodeset.app_type == 'workqueue':
-            s += ' --require cctools-statics'
-            s += ' -- work_queue_worker -M %s -dall -t %d --cores %d --memory %d --disk %d' % (request.name, 60*60*2, nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb)
+            s += ' --require cctools'
+            s += ' -- work_queue_worker -M %s -dall -t %d --cores %d --memory %d --disk %d --password %s' % (request.name, 60*60*2, nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb, '%(shared_secret_file)s')
+            if nodeset.app_lingertime:
+                s += ' --timeout %d' % (nodeset.app_lingertime, )
         elif nodeset.app_type == 'spark':
-            sparkmaster = 'spark://' + request.headnode['ip'] + ':7077'
-            s += ' --require spark'
-            s += ' -- \'$VC3_ROOT_SPARK/bin/spark-class org.apache.spark.deploy.worker.Worker %s\'' % sparkmaster 
+            sparkmaster = 'spark://' + headnode.app_host + ':7077'
+            s += ' --require spark-xrootd'
+            s += ' --var SPARK_NO_DAEMONIZE=1'
+            s += ' --var SPARK_MASTER_HOST=${%s}' % sparkmaster
+            s += ' -- start-slave.sh %s --properties-file %s -c %d -m %dM' % (sparkmaster, '%(shared_secret_file)s', nodesize.cores, nodesize.memory_mb * nodesize.cores)
         else:
             raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
 
@@ -525,7 +542,10 @@ class HandleRequests(VC3Task):
         factory_jobid = "$ENV(HOSTNAME)" + '#$(Cluster).$(Process)'
         if nodeset.app_type == 'htcondor' or nodeset.app_type == 'jupyter':
             s += ' --var _CONDOR_FACTORY_JOBID=' + factory_jobid # in the Condor/Jupyterhub case we also make sure its a Condor classad
-            s += ' --var _CONDOR_STARTD_ATTRS="$(STARTD_ATTRS) FACTORY_JOBID"'
+
+            # Leaving STARTD_ATTRS out for now, while fixing quoting.
+            #s += ' --var _CONDOR_STARTD_ATTRS=""$(STARTD_ATTRS) FACTORY_JOBID""'
+
             s += ' --var FACTORY_JOBID=' + factory_jobid
         else:
             # otherwise we just put the factory jobid into the environment. other middlewares might be able to use it too
