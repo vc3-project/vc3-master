@@ -390,7 +390,7 @@ class HandleRequests(VC3Task):
                 config.set(section_name, 'sched.maxtorun.maximum', node_number)
                 config.set(section_name, 'wmsstatusplugin', 'ANY')
                 config.set(section_name, 'wmsstatus.condor.scheddhost', request.headnode)
-             else:
+            else:
                 config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
 
 
