@@ -315,6 +315,7 @@ class HandleHeadNodes(VC3Task):
 
         extra_vars  = {}
         extra_vars['request_name']       = request.name
+        extra_vars['request_owner']      = request.owner
         extra_vars['headnode_ip']        = headnode.app_host
         extra_vars['setup_user_name']    = self.node_user
         extra_vars['production_keys']    = self.get_members_keys(request)
