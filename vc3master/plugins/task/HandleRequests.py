@@ -356,6 +356,9 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorsshremotemanager.authprofile', allocation.name)
 
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+Nonessential', 'True')
+            # CMS Connect resources work with singularity CMS images. Only RHEL7 is supported on spark clusters for now.
+            if resource.name == 'cms-connect' and nodeset.app_type == 'spark':
+                config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+REQUIRED_OS', 'rhel7')
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_cpus',   cores)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_disk',   disk   * 1024)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_memory', memory_per_core * cores)
@@ -510,6 +513,9 @@ class HandleRequests(VC3Task):
                 s += ' --timeout %d' % (nodeset.app_lingertime, )
         elif nodeset.app_type == 'spark':
             sparkmaster = 'spark://' + headnode.app_host + ':7077'
+            # Workaround to python-dev issue with singularity CMS images.
+            if resource.name == 'cms-connect':
+                s += '--no-sys python'
             s += ' --require spark-xrootd'
             s += ' --var SPARK_NO_DAEMONIZE=1'
             s += ' --var SPARK_MASTER_HOST=${%s}' % sparkmaster
