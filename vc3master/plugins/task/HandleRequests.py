@@ -358,7 +358,7 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+Nonessential', 'True')
             # CMS Connect resources work with singularity CMS images. Only RHEL7 is supported on spark clusters for now.
             if resource.name == 'cms-connect' and nodeset.app_type == 'spark':
-                config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+REQUIRED_OS', 'rhel7')
+                config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+remote_cerequirements', 'required_os=="rhel7"')
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_cpus',   cores)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_disk',   disk   * 1024)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_memory', memory_per_core * cores)
