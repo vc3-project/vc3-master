@@ -388,7 +388,8 @@ class HandleRequests(VC3Task):
                 config.set(section_name, 'schedplugin', 'Ready, Scale, KeepNRunning, MaxToRun')
                 config.set(section_name, 'sched.scale.factor', scalefactor)
                 config.set(section_name, 'sched.maxtorun.maximum', node_number)
-                config.set(section_name, 'wmsstatusplugin', 'ANY')
+                config.set(section_name, 'wmsstatusplugin', 'Condor')
+                config.set(section_name, 'wmsqueue', 'ANY')
                 config.set(section_name, 'wmsstatus.condor.scheddhost', request.headnode)
                 config.set(section_name, 'wmsstatus.condor.collectorhost', request.headnode)
             else:
