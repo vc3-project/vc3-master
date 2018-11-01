@@ -341,7 +341,6 @@ class HandleRequests(VC3Task):
         self.log.debug("Information finalized for queues configuration section [%s]. Creating config." % section_name)
 
         config.add_section(section_name)
-        config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
 
         cores  = (resource_nodesize and resource_nodesize.cores)      or 1
         disk   = (resource_nodesize and resource_nodesize.storage_mb) or 1024
@@ -385,6 +384,20 @@ class HandleRequests(VC3Task):
                     config.set(section_name, 'shared_secret', headnode.app_sectoken)
                 except Exception, e:
                     self.log.warning("Could not get headnode shared secret for request '%s'. Continuing without password (this probably won't work).", request.name )
+
+                # configure APF to resize the VC based on the # of jobs in queue
+                scalefactor = 1 / float(len(request.allocations))
+
+                config.set(section_name, 'schedplugin', 'Ready, Scale, KeepNRunning, MaxToRun')
+                config.set(section_name, 'sched.scale.factor', scalefactor)
+                config.set(section_name, 'sched.maxtorun.maximum', node_number)
+                config.set(section_name, 'wmsstatusplugin', 'Condor')
+                config.set(section_name, 'wmsqueue', 'ANY')
+                config.set(section_name, 'wmsstatus.condor.scheddhost', request.headnode)
+                config.set(section_name, 'wmsstatus.condor.collectorhost', request.headnode)
+            else:
+                config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
+
 
         elif resource.accesstype == 'cloud':
             config.set(section_name, 'batchsubmitplugin',          'CondorEC2')
