@@ -334,7 +334,7 @@ class HandleRequests(VC3Task):
         for nodeset in nodesets:
             self.add_nodeset_to_queuesconf(config, request, resource, resource_nodesize, allocation, nodeset)
 
-     def __get_ip(self, request):
+    def __get_ip(self, request):
         try:
             server = self.nova.servers.find(name=self.vm_name(request))
 
