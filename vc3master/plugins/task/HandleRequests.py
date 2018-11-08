@@ -345,6 +345,8 @@ class HandleRequests(VC3Task):
         cores  = (resource_nodesize and resource_nodesize.cores)      or 1
         disk   = (resource_nodesize and resource_nodesize.storage_mb) or 1024
         memory_per_core = (resource_nodesize and resource_nodesize.memory_mb)  or 1024
+    
+        
 
         if resource.accesstype == 'batch':
             config.set(section_name, 'batchsubmitplugin',           'CondorSSHRemoteManager')
@@ -388,13 +390,18 @@ class HandleRequests(VC3Task):
                 # configure APF to resize the VC based on the # of jobs in queue
                 scalefactor = 1 / float(len(request.allocations))
 
+                try:
+                    headnode.app_host = self.__get_ip(request)
+                    config.set(section_name, 'wmsstatusplugin', 'Condor')
+                    config.set(section_name, 'wmsqueue', 'ANY')
+                    config.set(section_name, 'wmsstatus.condor.scheddhost', request.headnode)
+                    config.set(section_name, 'wmsstatus.condor.collectorhost', request.headnode)
+                except Exception, e:
+                    self.log.warning("Couldn't get head node IP for request '%s'. Continuing without Condor WMS Status Plugin", request.name)
+
                 config.set(section_name, 'schedplugin', 'Ready, Scale, KeepNRunning, MaxToRun')
                 config.set(section_name, 'sched.scale.factor', scalefactor)
                 config.set(section_name, 'sched.maxtorun.maximum', node_number)
-                config.set(section_name, 'wmsstatusplugin', 'Condor')
-                config.set(section_name, 'wmsqueue', 'ANY')
-                config.set(section_name, 'wmsstatus.condor.scheddhost', request.headnode)
-                config.set(section_name, 'wmsstatus.condor.collectorhost', request.headnode)
             else:
                 config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
 
