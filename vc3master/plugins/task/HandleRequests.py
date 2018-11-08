@@ -334,6 +334,30 @@ class HandleRequests(VC3Task):
         for nodeset in nodesets:
             self.add_nodeset_to_queuesconf(config, request, resource, resource_nodesize, allocation, nodeset)
 
+     def __get_ip(self, request):
+        try:
+            server = self.nova.servers.find(name=self.vm_name(request))
+
+            if server.status != 'ACTIVE':
+                self.log.debug("Headnode for request %s is not active yet.", request.name)
+                return None
+
+        except Exception, e:
+            self.log.warning('Could not find headnode for request %s (%s)', request.name, e)
+            return None
+
+        try:
+            for network in server.networks.keys():
+                for ip in server.networks[network]:
+                    if re.match('\d+\.\d+\.\d+\.\d+', ip):
+                        return ip
+        except Exception, e:
+            self.log.warning("Could not find ip for request %s: %s", request.name, e)
+            raise e
+
+        return None
+
+
     def add_nodeset_to_queuesconf(self, config, request, resource, resource_nodesize, allocation, nodeset):
         node_number  = self.jobs_to_run_by_policy(request, allocation, nodeset)
         section_name = request.name + '.' + nodeset.name + '.' + allocation.name
@@ -390,19 +414,16 @@ class HandleRequests(VC3Task):
                 # configure APF to resize the VC based on the # of jobs in queue
                 scalefactor = 1 / float(len(request.allocations))
 
-                try:
-                    headnode.app_host = self.__get_ip(request)
-                    config.set(section_name, 'wmsstatusplugin', 'Condor')
-                    config.set(section_name, 'wmsqueue', 'ANY')
-                    config.set(section_name, 'wmsstatus.condor.scheddhost', request.headnode)
-                    config.set(section_name, 'wmsstatus.condor.collectorhost', request.headnode)
-                except Exception, e:
-                    self.log.warning("Couldn't get head node IP for request '%s'. Continuing without Condor WMS Status Plugin", request.name)
-
+                headnode.app_host = self.__get_ip(request)
+                config.set(section_name, 'wmsstatusplugin', 'Condor')
+                config.set(section_name, 'wmsqueue', 'ANY')
+                config.set(section_name, 'wmsstatus.condor.scheddhost', request.headnode)
+                config.set(section_name, 'wmsstatus.condor.collectorhost', request.headnode)
                 config.set(section_name, 'schedplugin', 'Ready, Scale, KeepNRunning, MaxToRun')
                 config.set(section_name, 'sched.scale.factor', scalefactor)
                 config.set(section_name, 'sched.maxtorun.maximum', node_number)
             else:
+                config.set(section_name, 'schedplugin', 'KeepNRunning')
                 config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
 
 
