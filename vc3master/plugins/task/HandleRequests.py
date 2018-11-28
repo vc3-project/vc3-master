@@ -414,7 +414,6 @@ class HandleRequests(VC3Task):
                 # configure APF to resize the VC based on the # of jobs in queue
                 scalefactor = 1 / float(len(request.allocations))
 
-                headnode.app_host = self.__get_ip(request)
                 config.set(section_name, 'wmsstatusplugin', 'Condor')
                 config.set(section_name, 'wmsqueue', 'ANY')
                 config.set(section_name, 'wmsstatus.condor.scheddhost', headnode.app_host)
