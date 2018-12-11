@@ -411,6 +411,9 @@ class HandleRequests(VC3Task):
                 except Exception, e:
                     self.log.warning("Could not get headnode shared secret for request '%s'. Continuing without password (this probably won't work).", request.name )
 
+                # Use dynamic resizing.
+                # This is currently broken.
+                '''
                 # configure APF to resize the VC based on the # of jobs in queue
                 scalefactor = 1 / float(len(request.allocations))
 
@@ -421,7 +424,8 @@ class HandleRequests(VC3Task):
                 config.set(section_name, 'schedplugin', 'Ready, Scale, KeepNRunning, MaxToRun')
                 config.set(section_name, 'sched.scale.factor', scalefactor)
                 config.set(section_name, 'sched.maxtorun.maximum', node_number)
-            else:
+                '''
+                # Use static size
                 config.set(section_name, 'schedplugin', 'KeepNRunning')
                 config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
 
