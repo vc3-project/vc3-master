@@ -108,14 +108,14 @@ class HandleAllocations(VC3Task):
         try:
             resource = self.client.getResource(allocation.resource)
 
-            if resource.accessmethod == 'ssh':
+            if resource.accessmethod == 'ssh' or resource.accessmethod == 'gsissh':
                 self.log.debug('Attempting to contact %s to validate allocation %s' % (resource.accesshost, allocation.name))
                 self.validate(allocation, resource) # raises exception on failure
                 self.log.debug('Allocation %s has been validated.' % (allocation.name,))
                 return ('ready', 'Allocation credentials were used succesfully to login into the resource.')
             else:
                 self.log.debug('Cannot yet validate using %s' % resource.accessmethod)
-                return ('ready', 'Only resources that can be contacted through ssh can be validated at this time.')
+                return ('failure', 'Only resources that can be contacted through gsissh/ssh can be validated at this time.')
 
         except subprocess.CalledProcessError, e:
             self.log.debug('Allocation %s could not be validated: %s' % (allocation.name, e))
