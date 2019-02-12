@@ -81,6 +81,7 @@ class HandleAllocations(VC3Task):
         '''
         self.log.debug('processing new allocation %s' % allocation.name)
         try:
+            resource = self.client.getResource(allocation.resource)
             if resource.accessmethod == 'ssh':
                 self.generate_auth_tokens(allocation)
             elif resource.accessmethod == 'gsissh':
