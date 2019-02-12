@@ -81,7 +81,11 @@ class HandleAllocations(VC3Task):
         '''
         self.log.debug('processing new allocation %s' % allocation.name)
         try:
-            self.generate_auth_tokens(allocation)
+            if resource.accessmethod == 'ssh':
+                self.generate_auth_tokens(allocation)
+            elif resource.accessmethod == 'gsissh':
+                # do we need to do anything?
+                self.log.debug('Resource access method is gsissh')
             return ('configured', 'Waiting for allocation to be validated.')
         except Exception, e:
             self.log.error("Exception during auth generation %s"% str(e))
@@ -155,16 +159,26 @@ class HandleAllocations(VC3Task):
             fh.flush()
 
             os.chmod(fh.name, 0400)
-
-            subprocess.check_call([
-                'ssh', 
-                '-o', 'UserKnownHostsFile=/dev/null',
-                '-o', 'StrictHostKeyChecking=no',
-                '-o', 'ConnectTimeout=10',
-                '-i', fh.name,
-                '-l', allocation.accountname,
-                '-p', resource.accessport,
-                resource.accesshost, '--', '/bin/date'])
-
-
-
+            if resource.accessmethod == 'ssh':
+                subprocess.check_call([
+                    'ssh', 
+                    '-o', 'UserKnownHostsFile=/dev/null',
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'ConnectTimeout=10',
+                    '-i', fh.name,
+                    '-l', allocation.accountname,
+                    '-p', resource.accessport,
+                    resource.accesshost, '--', '/bin/date'])
+            elif resource.accessmethod == 'gsissh':
+                subprocess.check_call([
+                    'gsissh', 
+                    '-o', 'UserKnownHostsFile=/dev/null',
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'ConnectTimeout=10',
+                    '-i', fh.name,
+                    '-l', allocation.accountname,
+                    '-p', resource.accessport,
+                    resource.accesshost, '--', '/bin/date'],
+                    env={"X509_USER_PROXY":fh.name})
+            else:
+                self.log.error("Can only validate ssh, gsissh accessmethods")
