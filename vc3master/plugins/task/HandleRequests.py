@@ -411,18 +411,20 @@ class HandleRequests(VC3Task):
                 except Exception, e:
                     self.log.warning("Could not get headnode shared secret for request '%s'. Continuing without password (this probably won't work).", request.name )
 
+                # Use dynamic resizing.
+                # This is currently broken.
                 # configure APF to resize the VC based on the # of jobs in queue
-                scalefactor = 1 / float(len(request.allocations))
+                # scalefactor = 1 / float(len(request.allocations))
 
-                headnode.app_host = self.__get_ip(request)
-                config.set(section_name, 'wmsstatusplugin', 'Condor')
-                config.set(section_name, 'wmsqueue', 'ANY')
-                config.set(section_name, 'wmsstatus.condor.scheddhost', headnode.app_host)
-                config.set(section_name, 'wmsstatus.condor.collectorhost', headnode.app_host)
-                config.set(section_name, 'schedplugin', 'Ready, Scale, KeepNRunning, MaxToRun')
-                config.set(section_name, 'sched.scale.factor', scalefactor)
-                config.set(section_name, 'sched.maxtorun.maximum', node_number)
-            else:
+                # config.set(section_name, 'wmsstatusplugin', 'Condor')
+                # config.set(section_name, 'wmsqueue', 'ANY')
+                # config.set(section_name, 'wmsstatus.condor.scheddhost', headnode.app_host)
+                # config.set(section_name, 'wmsstatus.condor.collectorhost', headnode.app_host)
+                # config.set(section_name, 'schedplugin', 'Ready, Scale, KeepNRunning, MaxToRun')
+                # config.set(section_name, 'sched.scale.factor', scalefactor)
+                # config.set(section_name, 'sched.maxtorun.maximum', node_number)
+
+                # Use static size
                 config.set(section_name, 'schedplugin', 'KeepNRunning')
                 config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
 
