@@ -181,7 +181,7 @@ class HandleAllocations(VC3Task):
                     '-l', allocation.accountname,
                     '-p', resource.accessport,
                     resource.accesshost, '--', '/bin/date'],
-                self.log.debug("Attempting to run: %s", ''.join(cmdlist))
+                self.log.debug("Attempting to run: %s", cmdlist)
                 subprocess.check_call(cmdlist)
                     #env={"X509_USER_PROXY":fh.name})
             else:
