@@ -158,6 +158,7 @@ class HandleAllocations(VC3Task):
             fh.write(b64decode(allocation.privtoken))
             fh.seek(0)
             fh.flush()
+            self.log.debug("Wrote temporary file %s", fh.name)
 
             os.chmod(fh.name, 0400)
             if resource.accessmethod == 'ssh':
@@ -179,7 +180,7 @@ class HandleAllocations(VC3Task):
                     '-i', fh.name,
                     '-l', allocation.accountname,
                     '-p', resource.accessport,
-                    resource.accesshost, '--', '/bin/date'],
-                    env={"X509_USER_PROXY":fh.name})
+                    resource.accesshost, '--', '/bin/date']),
+                    #env={"X509_USER_PROXY":fh.name})
             else:
                 self.log.error("Can only validate ssh, gsissh accessmethods")
