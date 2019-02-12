@@ -177,12 +177,9 @@ class HandleAllocations(VC3Task):
                     '-o', 'UserKnownHostsFile=/dev/null',
                     '-o', 'StrictHostKeyChecking=no',
                     '-o', 'ConnectTimeout=10',
-                    '-i', fh.name,
-                    '-l', allocation.accountname,
-                    '-p', resource.accessport,
+                    '-p', str(resource.accessport),
                     resource.accesshost, '--', '/bin/date'],
                 self.log.debug("Attempting to run: %s", cmdlist)
-                subprocess.check_call(cmdlist)
-                    #env={"X509_USER_PROXY":fh.name})
+                subprocess.check_call(cmdlist,env={"X509_USER_PROXY":fh.name})
             else:
                 self.log.error("Can only validate ssh, gsissh accessmethods")
