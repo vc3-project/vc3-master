@@ -376,6 +376,7 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmitplugin',           'CondorSSHRemoteManager')
             config.set(section_name, 'batchsubmit.condorsshremotemanager.user',  allocation.accountname)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.batch', resource.accessflavor)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.method', resource.accessmethod)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.host',  resource.accesshost)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.port',  str(resource.accessport))
             config.set(section_name, 'batchsubmit.condorsshremotemanager.authprofile', allocation.name)
