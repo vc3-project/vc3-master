@@ -334,6 +334,30 @@ class HandleRequests(VC3Task):
         for nodeset in nodesets:
             self.add_nodeset_to_queuesconf(config, request, resource, resource_nodesize, allocation, nodeset)
 
+    def __get_ip(self, request):
+        try:
+            server = self.nova.servers.find(name=self.vm_name(request))
+
+            if server.status != 'ACTIVE':
+                self.log.debug("Headnode for request %s is not active yet.", request.name)
+                return None
+
+        except Exception, e:
+            self.log.warning('Could not find headnode for request %s (%s)', request.name, e)
+            return None
+
+        try:
+            for network in server.networks.keys():
+                for ip in server.networks[network]:
+                    if re.match('\d+\.\d+\.\d+\.\d+', ip):
+                        return ip
+        except Exception, e:
+            self.log.warning("Could not find ip for request %s: %s", request.name, e)
+            raise e
+
+        return None
+
+
     def add_nodeset_to_queuesconf(self, config, request, resource, resource_nodesize, allocation, nodeset):
         node_number  = self.jobs_to_run_by_policy(request, allocation, nodeset)
         section_name = request.name + '.' + nodeset.name + '.' + allocation.name
@@ -341,21 +365,26 @@ class HandleRequests(VC3Task):
         self.log.debug("Information finalized for queues configuration section [%s]. Creating config." % section_name)
 
         config.add_section(section_name)
-        config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
 
         cores  = (resource_nodesize and resource_nodesize.cores)      or 1
         disk   = (resource_nodesize and resource_nodesize.storage_mb) or 1024
         memory_per_core = (resource_nodesize and resource_nodesize.memory_mb)  or 1024
+    
+        
 
         if resource.accesstype == 'batch':
             config.set(section_name, 'batchsubmitplugin',           'CondorSSHRemoteManager')
             config.set(section_name, 'batchsubmit.condorsshremotemanager.user',  allocation.accountname)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.batch', resource.accessflavor)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.method', resource.accessmethod)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.host',  resource.accesshost)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.port',  str(resource.accessport))
             config.set(section_name, 'batchsubmit.condorsshremotemanager.authprofile', allocation.name)
 
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+Nonessential', 'True')
+            # CMS Connect resources work with singularity CMS images. Only RHEL7 is supported on spark clusters for now.
+            if resource.name == 'cms-connect' and nodeset.app_type == 'spark':
+                config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+remote_cerequirements', 'required_os=="rhel7"')
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_cpus',   cores)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_disk',   disk   * 1024)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_memory', memory_per_core * cores)
@@ -364,13 +393,42 @@ class HandleRequests(VC3Task):
 
             config.set(section_name, 'executable',                  '%(builder)s')
 
-            if nodeset.app_type == 'htcondor' and nodeset.app_role == 'worker-nodes':
+            # for now, remove all jobs non-peacefully:
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'no')
+            # if nodeset.app_peaceful is not None:
+            #     if nodeset.app_peaceful:
+            #         config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'yes')
+            #     else:
+            #         config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.peaceful', 'no')
+
+            if nodeset.app_killorder is not None:
+                    config.set(section_name, 'batchsubmit.condorsshremotemanager.overlay.killorder', nodeset.app_killorder)
+
+            if nodeset.app_role == 'worker-nodes':
                 try:
                     headnode = self.client.getNodeset(request.headnode)
-                    config.set(section_name, 'condor_password_filename', request.name + '-condor.passwd')
-                    config.set(section_name, 'condor_password', headnode.app_sectoken)
+                    config.set(section_name, 'shared_secret_file', request.name + 'secret')
+                    config.set(section_name, 'shared_secret', headnode.app_sectoken)
                 except Exception, e:
-                    self.log.warning("Could not get headnode condor password for request '%s'. Continuing without password (this probably won't work).", request.name )
+                    self.log.warning("Could not get headnode shared secret for request '%s'. Continuing without password (this probably won't work).", request.name )
+
+                # Use dynamic resizing.
+                # This is currently broken.
+                # configure APF to resize the VC based on the # of jobs in queue
+                # scalefactor = 1 / float(len(request.allocations))
+
+                # config.set(section_name, 'wmsstatusplugin', 'Condor')
+                # config.set(section_name, 'wmsqueue', 'ANY')
+                # config.set(section_name, 'wmsstatus.condor.scheddhost', headnode.app_host)
+                # config.set(section_name, 'wmsstatus.condor.collectorhost', headnode.app_host)
+                # config.set(section_name, 'schedplugin', 'Ready, Scale, KeepNRunning, MaxToRun')
+                # config.set(section_name, 'sched.scale.factor', scalefactor)
+                # config.set(section_name, 'sched.maxtorun.maximum', node_number)
+
+                # Use static size
+                config.set(section_name, 'schedplugin', 'KeepNRunning')
+                config.set(section_name, 'sched.keepnrunning.keep_running', node_number)
+
 
         elif resource.accesstype == 'cloud':
             config.set(section_name, 'batchsubmitplugin',          'CondorEC2')
@@ -475,27 +533,37 @@ class HandleRequests(VC3Task):
 
     def add_pilot_to_queuesconf(self, config, request, section_name, nodeset, resource, nodesize):
 
+        try:
+            headnode  = self.client.getNodeset(request.headnode)
+        except Exception, e:
+            self.log.warning("Could not find headnode for request '%s'.")
+            raise e
+
         s = ''
         if nodeset.app_type == 'htcondor' or nodeset.app_type == 'jupyter':
-
-            collector = 'missing'
-            try:
-                headnode  = self.client.getNodeset(request.headnode)
-                collector = headnode.app_host
-            except Exception, e:
-                self.log.warning("Could not find collector for request '%s'.")
+            collector = headnode.app_host
 
             s += ' --require vc3-glidein'
             s += ' -- vc3-glidein --vc3-env VC3_SH_PROFILE_ENV'
-            s += ' -c %s -C %s -p %s -t -D %d -m %d --disk %d' % (collector, collector, '%(condor_password_filename)s', nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb * 1024)
+            s += ' -c %s -C %s -p %s -t -D %d -m %d --disk %d' % (collector, collector, '%(shared_secret_file)s', nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb * 1024)
+
+            if nodeset.app_lingertime:
+                s += ' --lingertime %d' % (nodeset.app_lingertime, )
 
         elif nodeset.app_type == 'workqueue':
-            s += ' --require cctools-statics'
-            s += ' -- work_queue_worker -M %s -dall -t %d --cores %d --memory %d --disk %d' % (request.name, 60*60*2, nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb)
+            s += ' --require cctools'
+            s += ' -- work_queue_worker -M %s -dall -t %d --cores %d --memory %d --disk %d --password %s' % (request.name, 60*60*2, nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb, '%(shared_secret_file)s')
+            if nodeset.app_lingertime:
+                s += ' --timeout %d' % (nodeset.app_lingertime, )
         elif nodeset.app_type == 'spark':
-            sparkmaster = 'spark://' + request.headnode['ip'] + ':7077'
-            s += ' --require spark'
-            s += ' -- \'$VC3_ROOT_SPARK/bin/spark-class org.apache.spark.deploy.worker.Worker %s\'' % sparkmaster 
+            sparkmaster = 'spark://' + headnode.app_host + ':7077'
+            # Workaround to python-dev issue with singularity CMS images.
+            if resource.name == 'cms-connect':
+                s += '--no-sys python'
+            s += ' --require spark-xrootd'
+            s += ' --var SPARK_NO_DAEMONIZE=1'
+            s += ' --var SPARK_MASTER_HOST=${%s}' % sparkmaster
+            s += ' -- start-slave.sh %s --properties-file %s -c %d -m %dM' % (sparkmaster, '%(shared_secret_file)s', nodesize.cores, nodesize.memory_mb * nodesize.cores)
         else:
             raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
 
@@ -513,7 +581,10 @@ class HandleRequests(VC3Task):
         factory_jobid = "$ENV(HOSTNAME)" + '#$(Cluster).$(Process)'
         if nodeset.app_type == 'htcondor' or nodeset.app_type == 'jupyter':
             s += ' --var _CONDOR_FACTORY_JOBID=' + factory_jobid # in the Condor/Jupyterhub case we also make sure its a Condor classad
-            s += ' --var _CONDOR_STARTD_ATTRS=""$(STARTD_ATTRS) FACTORY_JOBID""'
+
+            # Leaving STARTD_ATTRS out for now, while fixing quoting.
+            #s += ' --var _CONDOR_STARTD_ATTRS=""$(STARTD_ATTRS) FACTORY_JOBID""'
+
             s += ' --var FACTORY_JOBID=' + factory_jobid
         else:
             # otherwise we just put the factory jobid into the environment. other middlewares might be able to use it too

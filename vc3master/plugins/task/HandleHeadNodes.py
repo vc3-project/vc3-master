@@ -314,16 +314,22 @@ class HandleHeadNodes(VC3Task):
         os.environ['ANSIBLE_HOST_KEY_CHECKING']='False'
 
         extra_vars  = {}
-        extra_vars['request_name']         = request.name
-        extra_vars['setup_user_name']      = self.node_user
-        extra_vars['condor_password_file'] = self.condor_password_filename(request)
-        extra_vars['production_keys']      = self.get_members_keys(request)
-        extra_vars['builder_options']      = self.get_builder_options(request)
+        extra_vars['request_name']       = request.name
+        extra_vars['request_owner']      = request.owner
+        extra_vars['headnode_ip']        = headnode.app_host
+        extra_vars['setup_user_name']    = self.node_user
+        extra_vars['production_keys']    = self.get_members_keys(request)
+        extra_vars['builder_options']    = self.get_builder_options(request)
+        extra_vars['shared_secret_file'] = self.secret_auth_filename(request)
 
 	app_type = headnode.app_type
+        if app_type == 'jupyter':
+            extra_vars['globusvc3_mapfile']  = self.get_globusvc3_mapfile(request)
+        
 	if app_type is not None:
-	    self.ansible_playbook = self.ansible_path + "login-" + app_type + ".yaml"
-       	
+            playbook_name = "login-" + app_type + ".yaml"
+	    self.ansible_playbook = os.path.join(self.ansible_path, playbook_name)
+        
 	self.log.debug("playbook path : %s", self.ansible_playbook)
 	
 	# passing extra-vars as a command line argument for now. That won't
@@ -376,16 +382,16 @@ class HandleHeadNodes(VC3Task):
 
     def report_running_server(self, request, headnode):
         try:
-            headnode.app_sectoken = self.read_encoded(self.condor_password_filename(request))
+            headnode.app_sectoken = self.read_encoded(self.secret_auth_filename(request))
             headnode.state = 'running'
         except Exception, e:
-            self.log.warning('Cound not read condor password file for request %s (%s)', request.name, e)
+            self.log.warning('Cound not read file of shared secret for request %s (%s)', request.name, e)
             self.log.debug(traceback.format_exc(None))
             headnode.state = 'failure'
 
-    def condor_password_filename(self, request):
+    def secret_auth_filename(self, request):
         # file created by ansible
-        return '/tmp/condor_password.' + request.name
+        return '/tmp/secret.' + request.name
 
     def read_encoded(self, filename):
         with open(filename, 'r') as f:
@@ -406,18 +412,37 @@ class HandleHeadNodes(VC3Task):
 
         return members
 
-    def get_members_keys(self, request):
+    def _get_members_attributes(self, request, attribute):
         members    = self.get_members_names(request)
 
-        keys = {}
+        attributes = {}
         for member in members:
-            user = self.client.getUser(member)
+            try:
+                user = self.client.getUser(member)
+            except Exception, e:
+                self.log.warning("Could not find user: %s", member)
+                raise e
 
-            if not user or not user.sshpubstring:
-                self.log.warning('Could not find ssh key for user %s')
+            attr_value = getattr(user, attribute, None)
+            if not attr_value:
+                self.log.warning('Could not find attribute: %s, for user %s',
+                                 attribute, member)
             else:
-                keys[member] = user.sshpubstring
-        return keys
+                attributes[member] = attr_value
+
+        return attributes
+        
+    def get_members_keys(self, request):
+        return self._get_members_attributes(request, 'sshpubstring')
+
+    def get_members_uuids(self, request):
+        return self._get_members_attributes(request, 'identity_id')
+
+    def get_globusvc3_mapfile(self, request):
+        members_uuids = self.get_members_uuids(request)
+        mapfile = {i:j for j, i in members_uuids.iteritems()}
+
+        return mapfile
 
     def get_builder_options(self, request):
         packages = []

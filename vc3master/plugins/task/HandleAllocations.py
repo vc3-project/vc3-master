@@ -81,7 +81,12 @@ class HandleAllocations(VC3Task):
         '''
         self.log.debug('processing new allocation %s' % allocation.name)
         try:
-            self.generate_auth_tokens(allocation)
+            resource = self.client.getResource(allocation.resource)
+            if resource.accessmethod == 'ssh':
+                self.generate_auth_tokens(allocation)
+            elif resource.accessmethod == 'gsissh':
+                # do we need to do anything?
+                self.log.debug('Resource access method is gsissh')
             return ('configured', 'Waiting for allocation to be validated.')
         except Exception, e:
             self.log.error("Exception during auth generation %s"% str(e))
@@ -103,14 +108,14 @@ class HandleAllocations(VC3Task):
         try:
             resource = self.client.getResource(allocation.resource)
 
-            if resource.accessmethod == 'ssh':
+            if resource.accessmethod == 'ssh' or resource.accessmethod == 'gsissh':
                 self.log.debug('Attempting to contact %s to validate allocation %s' % (resource.accesshost, allocation.name))
                 self.validate(allocation, resource) # raises exception on failure
                 self.log.debug('Allocation %s has been validated.' % (allocation.name,))
                 return ('ready', 'Allocation credentials were used succesfully to login into the resource.')
             else:
                 self.log.debug('Cannot yet validate using %s' % resource.accessmethod)
-                return ('ready', 'Only resources that can be contacted through ssh can be validated at this time.')
+                return ('failure', 'Only resources that can be contacted through gsissh/ssh can be validated at this time.')
 
         except subprocess.CalledProcessError, e:
             self.log.debug('Allocation %s could not be validated: %s' % (allocation.name, e))
@@ -153,18 +158,28 @@ class HandleAllocations(VC3Task):
             fh.write(b64decode(allocation.privtoken))
             fh.seek(0)
             fh.flush()
+            self.log.debug("Wrote temporary file %s", fh.name)
 
             os.chmod(fh.name, 0400)
-
-            subprocess.check_call([
-                'ssh', 
-                '-o', 'UserKnownHostsFile=/dev/null',
-                '-o', 'StrictHostKeyChecking=no',
-                '-o', 'ConnectTimeout=10',
-                '-i', fh.name,
-                '-l', allocation.accountname,
-                '-p', resource.accessport,
-                resource.accesshost, '--', '/bin/date'])
-
-
-
+            if resource.accessmethod == 'ssh':
+                subprocess.check_call([
+                    'ssh', 
+                    '-o', 'UserKnownHostsFile=/dev/null',
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'ConnectTimeout=10',
+                    '-i', fh.name,
+                    '-l', allocation.accountname,
+                    '-p', resource.accessport,
+                    resource.accesshost, '--', '/bin/date'])
+            elif resource.accessmethod == 'gsissh':
+                cmdlist = [
+                    'gsissh', 
+                    '-o', 'UserKnownHostsFile=/dev/null',
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'ConnectTimeout=10',
+                    '-p', str(resource.accessport),
+                    resource.accesshost, '--', '/bin/date']
+                self.log.debug("Attempting to run: %s", cmdlist)
+                subprocess.check_call(cmdlist,env={"X509_USER_PROXY":fh.name})
+            else:
+                self.log.error("Can only validate ssh, gsissh accessmethods")
