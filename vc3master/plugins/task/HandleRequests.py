@@ -465,7 +465,7 @@ class HandleRequests(VC3Task):
             config.set(name, 'ssh.publickey', allocation.pubtoken)
             config.set(name, 'ssh.privatekey', allocation.privtoken)
         elif resource.accesstype == 'gsissh':
-            raise NoImplementedError
+            raise NotImplementedError
         elif resource.accesstype == 'local':
             # nothing special is needed
             config.set(name, 'plugin',        'Noop')
