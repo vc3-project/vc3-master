@@ -521,10 +521,10 @@ class HandleRequests(VC3Task):
             config.set(name, 'ssh.type',  allocation.sectype)
             config.set(name, 'ssh.publickey', allocation.pubtoken)
             config.set(name, 'ssh.privatekey', allocation.privtoken)
-        elif resource.accesstype == 'gsissh':
+        elif resource.accessmethod == 'gsissh':
             config.set(name, 'plugin',   'GSISSH')
             config.set(name, 'ssh.privatekey', allocation.privtoken)
-        elif resource.accesstype == 'local':
+        elif resource.accessmethod == 'local':
             # nothing special is needed
             config.set(name, 'plugin',        'Noop')
         else:
