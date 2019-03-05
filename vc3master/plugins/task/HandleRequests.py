@@ -383,7 +383,7 @@ class HandleRequests(VC3Task):
 
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+Nonessential', 'True')
             # CMS Connect resources work with singularity CMS images. Only RHEL7 is supported on spark clusters for now.
-            if resource.name == 'cms-connect' and nodeset.app_type == 'spark':
+            if resource.name == 'cms-connect' and 'spark' in nodeset.app_type:
                 config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+remote_cerequirements', 'required_os=="rhel7"')
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_cpus',   cores)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_disk',   disk   * 1024)
@@ -537,7 +537,7 @@ class HandleRequests(VC3Task):
             raise e
 
         s = ''
-        if nodeset.app_type == 'htcondor' or nodeset.app_type == 'jupyter':
+        if 'condor' in nodeset.app_type or nodeset.app_type == 'jupyter':
             collector = headnode.app_host
 
             s += ' --require vc3-glidein'
@@ -552,7 +552,7 @@ class HandleRequests(VC3Task):
             s += ' -- work_queue_worker -M %s -dall -t %d --cores %d --memory %d --disk %d --password %s' % (request.name, 60*60*2, nodesize.cores, nodesize.memory_mb * nodesize.cores, nodesize.storage_mb, '%(shared_secret_file)s')
             if nodeset.app_lingertime:
                 s += ' --timeout %d' % (nodeset.app_lingertime, )
-        elif nodeset.app_type == 'spark':
+        elif 'spark' in nodeset.app_type:
             sparkmaster = 'spark://' + headnode.app_host + ':7077'
             # Workaround to python-dev issue with singularity CMS images.
             if resource.name == 'cms-connect':
@@ -576,7 +576,7 @@ class HandleRequests(VC3Task):
 
         #e.g. FACTORY_JOBID=apf.virtualclusters.org#53406.6
         factory_jobid = "$ENV(HOSTNAME)" + '#$(Cluster).$(Process)'
-        if nodeset.app_type == 'htcondor' or nodeset.app_type == 'jupyter':
+        if 'condor' in nodeset.app_type or nodeset.app_type == 'jupyter':
             s += ' --var _CONDOR_FACTORY_JOBID=' + factory_jobid # in the Condor/Jupyterhub case we also make sure its a Condor classad
 
             # Leaving STARTD_ATTRS out for now, while fixing quoting.

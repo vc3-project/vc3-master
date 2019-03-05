@@ -322,17 +322,17 @@ class HandleHeadNodes(VC3Task):
         extra_vars['builder_options']    = self.get_builder_options(request)
         extra_vars['shared_secret_file'] = self.secret_auth_filename(request)
 
-	app_type = headnode.app_type
-        if app_type == 'jupyter':
+        app_type = headnode.app_type
+        if 'jupyter' in app_type:
             extra_vars['globusvc3_mapfile']  = self.get_globusvc3_mapfile(request)
-        
-	if app_type is not None:
+
+        if app_type is not None:
             playbook_name = "login-" + app_type + ".yaml"
-	    self.ansible_playbook = os.path.join(self.ansible_path, playbook_name)
-        
-	self.log.debug("playbook path : %s", self.ansible_playbook)
-	
-	# passing extra-vars as a command line argument for now. That won't
+            self.ansible_playbook = os.path.join(self.ansible_path, playbook_name)
+
+        self.log.debug("playbook path : %s", self.ansible_playbook)
+
+        # passing extra-vars as a command line argument for now. That won't
         # scale well, we want to write those vars to a file instead.
         pipe = subprocess.Popen(
                 ['ansible-playbook',
