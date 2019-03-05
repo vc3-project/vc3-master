@@ -514,9 +514,6 @@ class HandleRequests(VC3Task):
             # credible always generates rsa keys
             #allocation.sectype = 'ssh-rsa'
             #(allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)
-            if allocation.pubtoken is none:
-                raise vc3invalidrequest("allocation '%s' doesn't have pub token." % allocation_name, request = request)
-            
             config.set(name, 'plugin',   'SSH')
             config.set(name, 'ssh.type',  allocation.sectype)
             config.set(name, 'ssh.publickey', allocation.pubtoken)
