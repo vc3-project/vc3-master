@@ -537,7 +537,7 @@ class HandleRequests(VC3Task):
             raise e
 
         s = ''
-        if nodset.app_type in ['htcondor', 'jupyter+htcondor']:
+        if nodeset.app_type in ['htcondor', 'jupyter+htcondor']:
             collector = headnode.app_host
 
             s += ' --require vc3-glidein'
