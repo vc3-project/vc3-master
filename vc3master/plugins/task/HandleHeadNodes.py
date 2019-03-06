@@ -323,7 +323,7 @@ class HandleHeadNodes(VC3Task):
         extra_vars['shared_secret_file'] = self.secret_auth_filename(request)
 
         app_type = headnode.app_type
-        if 'jupyter' in app_type:
+        if app_type in ['jupyter+htcondor', 'jupyter+spark']:
             extra_vars['globusvc3_mapfile']  = self.get_globusvc3_mapfile(request)
 
         if app_type is not None:
