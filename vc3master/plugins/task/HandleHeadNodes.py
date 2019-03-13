@@ -323,6 +323,7 @@ class HandleHeadNodes(VC3Task):
         extra_vars['shared_secret_file'] = self.secret_auth_filename(request)
         extra_vars['globusvc3_mapfile']  = self.get_globusvc3_mapfile(request)
 
+        app_type = headnode.app_type
         if app_type is not None:
             playbook_name = "login-" + app_type + ".yaml"
             self.ansible_playbook = os.path.join(self.ansible_path, playbook_name)
@@ -477,11 +478,11 @@ class HandleHeadNodes(VC3Task):
                 self.log.debug(traceback.format_exc(None))
 
     def getAppType(self, request):
-	cluster = self.client.getCluster(request.cluster)
-	nodeset = self.client.getNodeset(cluster.nodesets[0])
-	app_type = nodeset.app_type
-	
-	return app_type
+        cluster = self.client.getCluster(request.cluster)
+        nodeset = self.client.getNodeset(cluster.nodesets[0])
+        app_type = nodeset.app_type
+
+        return app_type
 
     def __get_ip(self, request):
         try:
