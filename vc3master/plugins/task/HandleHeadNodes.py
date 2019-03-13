@@ -321,10 +321,7 @@ class HandleHeadNodes(VC3Task):
         extra_vars['production_keys']    = self.get_members_keys(request)
         extra_vars['builder_options']    = self.get_builder_options(request)
         extra_vars['shared_secret_file'] = self.secret_auth_filename(request)
-
-        app_type = headnode.app_type
-        if app_type in ['jupyter+htcondor', 'jupyter+spark']:
-            extra_vars['globusvc3_mapfile']  = self.get_globusvc3_mapfile(request)
+        extra_vars['globusvc3_mapfile']  = self.get_globusvc3_mapfile(request)
 
         if app_type is not None:
             playbook_name = "login-" + app_type + ".yaml"
