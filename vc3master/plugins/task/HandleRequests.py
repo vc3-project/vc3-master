@@ -389,7 +389,8 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_disk',   disk   * 1024)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.request_memory', memory_per_core * cores)
             # Workaround to (apparently) a bosco bug dealing with multicore
-            config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+remote_nodenumber',   cores)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+remote_nodenumber', cores)
+            config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+remote_SMPGranularity', cores)
 
             config.set(section_name, 'executable',                  '%(builder)s')
 
