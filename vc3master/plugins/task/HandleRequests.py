@@ -611,8 +611,6 @@ class HandleRequests(VC3Task):
 
             reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
 
-            if nodeset.app_type in ['reana+htcondor']:
-                reqs += ' --require user-profile-environment'  
             
             vars  = ' '.join(['--var %s' % x for x in vs])
 
@@ -623,6 +621,9 @@ class HandleRequests(VC3Task):
 
             if environment.command:
                 self.log.warning('Ignoring command of environment %s for %s. Adding pilot for %s instead' % (environment.name, section_name, nodeset.name))
+
+        if nodeset.app_type in ['reana+htcondor']:
+            s += ' --require user-profile-environment'  
 
         if len(envs) > 0:
             config.set(section_name, 'vc3.environments', ','.join(envs))
