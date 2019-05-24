@@ -573,6 +573,8 @@ class HandleRequests(VC3Task):
         s += ' --home=.'
         s += ' --install=.'
         s += ' --bosco-workaround'
+        # Parse SCRATCH, pretty common in HPC resources.
+        s += " --revar '^SCRATCH$'"
 
         #e.g. FACTORY_JOBID=apf.virtualclusters.org#53406.6
         factory_jobid = "$ENV(HOSTNAME)" + '#$(Cluster).$(Process)'
@@ -606,8 +608,12 @@ class HandleRequests(VC3Task):
             if environment.required_os is not None:
                 os = '--require-os %s' %environment.required_os
                 s += ' ' + os
-            
+
             reqs  = ' '.join(['--require %s' % x for x in environment.packagelist])
+
+            if nodeset.app_type in ['reana+htcondor']:
+                reqs += ' --require user-profile-environment'  
+            
             vars  = ' '.join(['--var %s' % x for x in vs])
 
             s += ' ' + vars + ' ' + reqs
