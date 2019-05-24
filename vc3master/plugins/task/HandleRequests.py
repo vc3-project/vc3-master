@@ -623,7 +623,7 @@ class HandleRequests(VC3Task):
                 self.log.warning('Ignoring command of environment %s for %s. Adding pilot for %s instead' % (environment.name, section_name, nodeset.name))
 
         if nodeset.app_type in ['reana+htcondor']:
-            s += ' --require user-profile-environment'  
+            s += ' --require container-technology'
 
         if len(envs) > 0:
             config.set(section_name, 'vc3.environments', ','.join(envs))
