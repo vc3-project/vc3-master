@@ -573,8 +573,10 @@ class HandleRequests(VC3Task):
         s += ' --home=.'
         s += ' --install=.'
         s += ' --bosco-workaround'
-        # Parse SCRATCH, pretty common in HPC resources.
+        # Parse common environment variables in HPC resources,
+        # in case they exist.
         s += " --revar '^SCRATCH$'"
+        s += " --revar 'PBS_.*'"
 
         #e.g. FACTORY_JOBID=apf.virtualclusters.org#53406.6
         factory_jobid = "$ENV(HOSTNAME)" + '#$(Cluster).$(Process)'
