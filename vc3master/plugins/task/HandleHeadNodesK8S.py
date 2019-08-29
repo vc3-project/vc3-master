@@ -51,7 +51,7 @@ class HandleHeadNodes(VC3Task):
 
         # number of times we have tries to initialize a node. After node_max_initializing_count, declare failure.
         self.initializing_count = {}
-
+	self.kubernetes_config = self.config.get(section, 'kube_config')
         self.log.debug("HandleHeadNodes VC3Task initialized.")
 
     global login_info
@@ -60,7 +60,7 @@ class HandleHeadNodes(VC3Task):
 	Args: request 
 	Returns: IP and port as integers 
 	"""
-        config.load_kube_config(config_file = '/etc/kubernetes/admin.conf')
+        config.load_kube_config(config_file = self.kubernetes_config)
         v1 = client.CoreV1Api()
         k8s_client = client.ApiClient()
         k8s_api = client.ExtensionsV1beta1Api(k8s_client)
@@ -110,7 +110,7 @@ class HandleHeadNodes(VC3Task):
 	Returns: None  
 	"""
 	self.log.info('Starting login_create')
-        config.load_kube_config(config_file = '/etc/kubernetes/admin.conf')
+	config.load_kube_config(config_file = self.kubernetes_config)
         v1 = client.CoreV1Api()
         k8s_client = client.ApiClient()
         k8s_api = client.ExtensionsV1beta1Api(k8s_client)
@@ -148,7 +148,7 @@ class HandleHeadNodes(VC3Task):
 	Args: request
 	Returns: None 
 	"""
-        config.load_kube_config(config_file = '/etc/kubernetes/admin.conf')
+	config.load_kube_config(config_file = self.kubernetes_config)
         pp = pprint.PrettyPrinter(indent =4)
         configuration = kubernetes.client.Configuration()
 	api_instance = kubernetes.client.CoreV1Api(kubernetes.client.ApiClient(configuration))
@@ -163,7 +163,7 @@ class HandleHeadNodes(VC3Task):
 	Args: request 
 	Returns: None
 	"""
-        config.load_kube_config(config_file = '/etc/kubernetes/admin.conf')
+	config.load_kube_config(config_file = self.kubernetes_config)
         pp = pprint.PrettyPrinter(indent =4)
         configuration = kubernetes.client.Configuration()
         api_instance = kubernetes.client.AppsV1Api(kubernetes.client.ApiClient(configuration))
@@ -200,7 +200,7 @@ class HandleHeadNodes(VC3Task):
 	Args: request 
 	Returns: None
 	"""
-        config.load_kube_config(config_file = '/etc/kubernetes/admin.conf')
+	config.load_kube_config(config_file = self.kubernetes_config)
         core_v1_api = kubernetes.client.CoreV1Api()
         serv_list = []
         serv_list.append(kubernetes.client.V1ServicePort(port=22, protocol='TCP'))
@@ -215,7 +215,7 @@ class HandleHeadNodes(VC3Task):
 	Args: request 
 	Returns: None
 	"""
-        config.load_kube_config(config_file = '/etc/kubernetes/admin.conf')
+	config.load_kube_config(config_file = self.kubernetes_config)
         core_v1_api = kubernetes.client.CoreV1Api()
 	string_to_append = self.add_keys_to_pod(request)
         bodyc = kubernetes.client.V1ConfigMap(api_version = 'v1', kind = 'ConfigMap', metadata = kubernetes.client.V1ObjectMeta(name = "new-config-" + str(request.name), namespace = str(request.name)), data = {'tconfig-file.conf':'\n' +string_to_append})
@@ -229,7 +229,7 @@ class HandleHeadNodes(VC3Task):
 	Args: request 
 	Returns: None 
 	"""
-	config.load_kube_config(config_file = '/etc/kubernetes/admin.conf')
+	config.load_kube_config(config_file = self.kubernetes_config)
         k8s_client = client.ApiClient()
         k8s_api = client.ExtensionsV1beta1Api(k8s_client)
         configuration = kubernetes.client.Configuration()
