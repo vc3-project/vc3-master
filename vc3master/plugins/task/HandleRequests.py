@@ -511,7 +511,7 @@ class HandleRequests(VC3Task):
         if not resource:
             raise VC3InvalidRequest("Resource '%s' has not been declared." % allocation.resource, request = request)
 
-        if resource.accessmethod == 'ssh':
+        if resource.accessmethod in ('ssh', 'sshproxy'):
             # credible always generates rsa keys
             #allocation.sectype = 'ssh-rsa'
             #(allocation.pubtoken, allocation.privtoken) = self.generate_auth_tokens(name)

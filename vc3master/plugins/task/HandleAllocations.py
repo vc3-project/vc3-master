@@ -84,9 +84,9 @@ class HandleAllocations(VC3Task):
             resource = self.client.getResource(allocation.resource)
             if resource.accessmethod == 'ssh':
                 self.generate_auth_tokens(allocation)
-            elif resource.accessmethod == 'gsissh':
+            elif resource.accessmethod in ('gsissh', 'sshproxy'):
                 # do we need to do anything?
-                self.log.debug('Resource access method is gsissh')
+                self.log.debug('Resource access method is %s' % resource.accessmethod)
             return ('configured', 'Waiting for allocation to be validated.')
         except Exception, e:
             self.log.error("Exception during auth generation %s"% str(e))
@@ -108,7 +108,7 @@ class HandleAllocations(VC3Task):
         try:
             resource = self.client.getResource(allocation.resource)
 
-            if resource.accessmethod == 'ssh' or resource.accessmethod == 'gsissh':
+            if resource.accessmethod in ('ssh', 'gsissh', 'sshproxy'):
                 self.log.debug('Attempting to contact %s to validate allocation %s' % (resource.accesshost, allocation.name))
                 self.validate(allocation, resource) # raises exception on failure
                 self.log.debug('Allocation %s has been validated.' % (allocation.name,))
@@ -161,7 +161,7 @@ class HandleAllocations(VC3Task):
             self.log.debug("Wrote temporary file %s", fh.name)
 
             os.chmod(fh.name, 0400)
-            if resource.accessmethod == 'ssh':
+            if resource.accessmethod in ('ssh', 'sshproxy'):
                 subprocess.check_call([
                     'ssh', 
                     '-o', 'UserKnownHostsFile=/dev/null',
