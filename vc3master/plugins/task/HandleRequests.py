@@ -561,6 +561,16 @@ class HandleRequests(VC3Task):
             s += ' --require spark-xrootd'
             s += ' --var SPARK_NO_DAEMONIZE=1'
             s += ' -- start-slave.sh %s --properties-file %s -c %d -m %dM' % (sparkmaster, '%(shared_secret_file)s', nodesize.cores, nodesize.memory_mb * nodesize.cores)
+        elif nodeset.app_type in ['coffea+spark']:
+            sparkmaster = 'spark://' + headnode.app_host + ':7077'
+            # Workaround to python-dev issue with singularity CMS images.
+            if resource.name == 'cms-connect':
+                s += '--no-sys python'
+            s += ' --no-sys zlib'
+            s += ' --require spark:2.4.3'
+            s += ' --require spark-xrootd'
+            s += ' --var SPARK_NO_DAEMONIZE=1'
+            s += ' -- start-slave.sh %s --properties-file %s -c %d -m %dM' % (sparkmaster, '%(shared_secret_file)s', nodesize.cores, nodesize.memory_mb * nodesize.cores)
         else:
             raise VC3InvalidRequest("Unknown nodeset app_type: '%s'" % nodeset.app_type)
 
