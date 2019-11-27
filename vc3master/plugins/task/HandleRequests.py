@@ -380,6 +380,8 @@ class HandleRequests(VC3Task):
             config.set(section_name, 'batchsubmit.condorsshremotemanager.host',  resource.accesshost)
             config.set(section_name, 'batchsubmit.condorsshremotemanager.port',  str(resource.accessport))
             config.set(section_name, 'batchsubmit.condorsshremotemanager.authprofile', allocation.name)
+            if resource.sandboxdir is not None:
+                config.set(section_name, 'batchsubmit.condorsshremotemanager.sandboxdir', resource.sandboxdir)
 
             config.set(section_name, 'batchsubmit.condorsshremotemanager.condor_attributes.+Nonessential', 'True')
             # CMS Connect resources work with singularity CMS images. Only RHEL7 is supported on spark clusters for now.
